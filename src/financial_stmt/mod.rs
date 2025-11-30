@@ -1,4 +1,5 @@
 pub mod balance_sheet;
+pub mod cash_flow;
 pub mod income_statement;
 pub mod sec_client;
 
@@ -7,7 +8,7 @@ use crate::common::{FiscalPeriod, FormReport, MetaData};
 use chrono::{Datelike, Utc};
 use serde_json::{Map, Value};
 
-pub trait FinancialStatement: Sized + Default {
+pub trait FinancialStatement: Default {
     /// Get GAAP tags of  financial statements
     fn get_gaap_tags(&self) -> &[&'static str];
 

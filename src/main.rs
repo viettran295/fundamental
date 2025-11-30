@@ -6,8 +6,8 @@ use financial_stmt::sec_client::SecClient;
 
 use crate::{
     financial_stmt::{
-        FinancialStatement, balance_sheet::BalanceSheet, income_statement::IncomeStatement,
-        sec_client::ConfiguredHttpClient,
+        FinancialStatement, balance_sheet::BalanceSheet, cash_flow::CashFlow,
+        income_statement::IncomeStatement, sec_client::ConfiguredHttpClient,
     },
     interface::HttpClient,
 };
@@ -25,8 +25,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut balance_sheet = BalanceSheet::default();
     balance_sheet.parse_quarly_latest(&json).expect("Err");
 
+    let mut cash_flow = CashFlow::default();
+    cash_flow.parse_annually_latest(&json).expect("Err");
+
     println!("{:?}", income_stmt);
     println!("{:?}", balance_sheet);
+    println!("{:?}", cash_flow);
 
     Ok(())
 }
