@@ -1,6 +1,6 @@
 #[derive(Debug)]
 pub enum FormReport {
-    INVALID,
+    Invalid,
     Quarly,
     Annually,
 }
@@ -10,14 +10,14 @@ impl From<&str> for FormReport {
         match s {
             "10-Q" => FormReport::Quarly,
             "10-K" => FormReport::Annually,
-            _ => FormReport::INVALID,
+            _ => FormReport::Invalid,
         }
     }
 }
 
 #[derive(Debug)]
 pub enum FiscalPeriod {
-    INVALID,
+    Invalid,
     Q1,
     Q2,
     Q3,
@@ -31,7 +31,7 @@ impl From<&str> for FiscalPeriod {
             "Q2" => FiscalPeriod::Q2,
             "Q3" => FiscalPeriod::Q3,
             "FY" => FiscalPeriod::FY,
-            _ => FiscalPeriod::INVALID,
+            _ => FiscalPeriod::Invalid,
         }
     }
 }
