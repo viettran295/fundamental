@@ -18,39 +18,34 @@ pub trait FinancialStatement: Default {
     /// Set GAAP tags to struct fields
     fn set_gaap_value(&mut self, gaap_tag: &str, value: i64);
 
-    fn parse_quarly_latest(
-        &mut self,
-        json_data: &Value,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    fn parse_quarly_latest(&mut self, json_data: &Value) -> Result<(), Box<dyn std::error::Error>> {
         let facts = Self::extract_us_gaap(json_data)?;
-        let mut financial_stmt = Self::default();
-
-        for gaap_tag in self.get_gaap_tags() {
+        let gaap_tags = self.get_gaap_tags().to_vec();
+        for gaap_tag in gaap_tags {
             let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, gaap_tag)?;
             let latest_data = facts_data.last().unwrap();
-            financial_stmt.fill_from_sec_json(latest_data, gaap_tag);
+            self.fill_from_sec_json(latest_data, gaap_tag);
         }
-        Ok(financial_stmt)
+        Ok(())
     }
 
     fn parse_annually_latest(
         &mut self,
         json_data: &Value,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let facts = Self::extract_us_gaap(json_data)?;
         let current_year = Utc::now().year();
-        let mut financial_stmt = Self::default();
-
-        for gaap_tag in self.get_gaap_tags() {
+        let gaap_tags = self.get_gaap_tags().to_vec();
+        for gaap_tag in gaap_tags {
             let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, gaap_tag)?;
             for latest_data in facts_data.iter().rev() {
                 if latest_data["fy"].as_i64().unwrap() == current_year as i64 {
-                    financial_stmt.fill_from_sec_json(latest_data, gaap_tag);
+                    self.fill_from_sec_json(latest_data, gaap_tag);
                     break;
                 }
             }
         }
-        Ok(financial_stmt)
+        Ok(())
     }
 
     /// Extract field 'us-gaap' from SEC json raw response

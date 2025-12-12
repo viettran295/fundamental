@@ -38,10 +38,13 @@ impl From<&str> for FiscalPeriod {
 
 #[derive(Debug)]
 pub struct MetaData {
+    #[allow(unused)]
     pub accn: String,
     pub start_date: String,
     pub end_date: String,
+    #[allow(unused)]
     pub filed_date: String,
+    #[allow(unused)]
     pub frame: String,
     pub form_report: FormReport,
     pub fiscal_period: FiscalPeriod,
