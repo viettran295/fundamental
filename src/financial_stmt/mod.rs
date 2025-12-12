@@ -85,3 +85,105 @@ pub trait FinancialStatement: Default {
         self.set_gaap_value(gaap_tag, sec_data["val"].as_i64().unwrap_or(0));
     }
 }
+
+// --- Test ---
+#[cfg(test)]
+mod unittests {
+    use super::*;
+    use serde_json::json;
+
+    #[derive(Debug, Default)]
+    struct MockIncomeStatement {
+        metadata: MetaData,
+    }
+
+    impl FinancialStatement for MockIncomeStatement {
+        fn get_gaap_tags(&self) -> &[&'static str] {
+            &["Revenues", "NetIncomeLoss"]
+        }
+
+        fn get_metadata(&mut self) -> &mut MetaData {
+            &mut self.metadata
+        }
+
+        fn set_gaap_value(&mut self, _gaap_tag: &str, _value: i64) {}
+    }
+
+    fn create_mock_sec_json(current_year: i32) -> Value {
+        json!({
+            "facts": {
+                "us-gaap": {
+                    "Revenues": {
+                        "units": {
+                            "USD": [
+                                {"val": 2000, "form": "10-Q", "fp": "Q4", "fy": current_year - 1, "start": "2024-10-01", "end": "2024-12-31"},
+                                {"val": 3000, "form": "10-Q", "fp": "Q1", "fy": current_year, "start": "2025-01-01", "end": "2025-03-31"},
+                            ]
+                        }
+                    },
+                    "NetIncomeLoss": {
+                        "units": {
+                            "USD": [
+                                {"val": 50, "form": "10-K", "fp": "FY", "fy": current_year - 1, "start": "2024-01-01", "end": "2024-12-31"},
+                                {"val": 150, "form": "10-K", "fp": "FY", "fy": current_year, "start": "2025-01-01", "end": "2025-12-31"},
+                            ]
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    #[test]
+    fn test_extract_us_gaap() {
+        let mock_obj = MockIncomeStatement::default();
+        let current_year = Utc::now().year();
+        let json_data = create_mock_sec_json(current_year);
+        let result = MockIncomeStatement::extract_us_gaap(&json_data);
+        assert!(result.is_ok());
+        for tag in mock_obj.get_gaap_tags() {
+            assert!(result.as_ref().unwrap().contains_key(*tag));
+        }
+    }
+
+    #[test]
+    fn test_extract_us_gaap_missing() {
+        let json_data = json!({"facts": {}});
+        let result = MockIncomeStatement::extract_us_gaap(&json_data);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Parse error: could not find 'facts'"
+        );
+    }
+
+    #[test]
+    fn extract_gaap_tag_in_unit_usd() {
+        let mock_obj = MockIncomeStatement::default();
+        let current_year = Utc::now().year();
+        let json_data = create_mock_sec_json(current_year);
+        let facts = MockIncomeStatement::extract_us_gaap(&json_data);
+        assert!(facts.is_ok());
+
+        for gaap_tag in mock_obj.get_gaap_tags() {
+            let facts_data = MockIncomeStatement::extract_gaap_tag_in_unit_usd(
+                facts.as_ref().unwrap(),
+                gaap_tag,
+            );
+            assert!(facts_data.is_ok());
+            assert_eq!(facts_data.unwrap().len(), 2);
+        }
+    }
+
+    #[test]
+    fn test_extract_gaap_tag_in_unit_usd_missing_tag() {
+        let json_data = create_mock_sec_json(2025);
+        let facts = MockIncomeStatement::extract_us_gaap(&json_data).unwrap();
+        let result = MockIncomeStatement::extract_gaap_tag_in_unit_usd(facts, "MissingTag");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Parse error: could not find MissingTag"
+        );
+    }
+}
