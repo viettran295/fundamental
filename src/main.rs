@@ -1,6 +1,7 @@
 mod common;
 mod financial_stmt;
 mod interface;
+mod ratios;
 
 use financial_stmt::sec_client::SecClient;
 
