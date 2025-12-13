@@ -3,12 +3,10 @@ mod financial_stmt;
 mod interface;
 mod ratios;
 
-use financial_stmt::sec_client::SecClient;
-
 use crate::{
     financial_stmt::{
         FinancialStatement, balance_sheet::BalanceSheet, cash_flow::CashFlow,
-        income_statement::IncomeStatement, sec_client::ConfiguredHttpClient,
+        income_statement::IncomeStatement, sec_client::ConfiguredHttpClient, sec_client::SecClient,
     },
     interface::HttpClient,
 };

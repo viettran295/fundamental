@@ -193,9 +193,6 @@ mod unittests {
             (net_income / total_revenue)
         );
         total_revenue = 0.0;
-        assert_eq!(
-            Ratios::gross_profit_margin(net_income, total_revenue),
-            0.0
-        );
+        assert_eq!(Ratios::gross_profit_margin(net_income, total_revenue), 0.0);
     }
 }
