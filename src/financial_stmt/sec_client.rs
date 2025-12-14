@@ -1,6 +1,10 @@
 use crate::interface::HttpClient;
 
-use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
+use reqwest::{
+    Response,
+    header::{HeaderMap, HeaderValue, USER_AGENT},
+};
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 #[derive(Debug)]
@@ -38,7 +42,7 @@ struct CompanyTickers {
 }
 
 #[derive(Debug, serde::Deserialize)]
-pub struct StandardIndustryCode {
+pub struct SICResponse {
     sic: String,
     #[serde(rename = "sicDescription")]
     sic_description: String,
@@ -59,6 +63,13 @@ pub struct SecClient {
 }
 
 impl SecClient {
+    /// SEC API endpoint for company ticker, which is used for ticker-to-CIK mapping
+    const TICKER_LOOKUP_URL: &str = "https://www.sec.gov/files/company_tickers_exchange.json";
+    /// Base URL for submission data
+    const SUBMISSIONS_BASE_URL: &str = "https://data.sec.gov/submissions";
+    /// Base URL for company facts data
+    const COMPANY_FACTS_BASE_URL: &str = "https://data.sec.gov/api/xbrl/companyfacts";
+
     pub fn new(ticker: String, http_client: ConfiguredHttpClient) -> Self {
         Self {
             ticker,
@@ -67,32 +78,22 @@ impl SecClient {
     }
 
     /// Fetch company's metadata Standard Industry Code (SIC)
-    pub async fn fetch_sic(&self) -> Result<StandardIndustryCode, Box<dyn std::error::Error>> {
-        let cik = Self::ticker_to_cik(&self.ticker).await?;
+    pub async fn fetch_sic(&self) -> Result<SICResponse, Box<dyn std::error::Error>> {
+        let cik = self.ticker_to_cik().await?;
         let url = format!(
-            "https://data.sec.gov/submissions/{}.json",
+            "{}/{}.json",
+            Self::SUBMISSIONS_BASE_URL,
             cik.unwrap_or_default()
         );
-        let client = self.http_client.client();
-        let response = client.get(url).send().await?;
-        let response = response.error_for_status()?;
-        let data: StandardIndustryCode = response.json().await?;
+        let data: SICResponse = self.fetch_json(&url).await?;
         Ok(data)
     }
 
-    async fn ticker_to_cik(
-        search_ticker: &str,
-    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
-        let url = "https://www.sec.gov/files/company_tickers_exchange.json";
-        let client = reqwest::Client::builder()
-            .user_agent("(contact@example.com)")
-            .build()?;
-        let response = client.get(url).send().await?.error_for_status()?;
-
-        let sec_response: SecResponse = response.json().await?;
+    async fn ticker_to_cik(&self) -> Result<Option<String>, Box<dyn std::error::Error>> {
+        let sec_response: SecResponse = self.fetch_json(Self::TICKER_LOOKUP_URL).await?;
         let company_tickers: Vec<CompanyTickers> = sec_response.data;
         for company_ticker in company_tickers {
-            if company_ticker.ticker.unwrap_or(String::from("")) == search_ticker {
+            if company_ticker.ticker.unwrap_or(String::from("")) == self.ticker {
                 return Ok(Some(format!("CIK000{}", company_ticker.cik)));
             }
         }
@@ -104,15 +105,13 @@ impl HttpClient<serde_json::Value> for SecClient {
     type Error = reqwest::Error;
 
     async fn fetch_data(&self) -> Result<Value, Self::Error> {
-        let cik = Self::ticker_to_cik(&self.ticker).await.unwrap_or_default();
+        let cik = self.ticker_to_cik().await.unwrap_or_default();
         let url = format!(
-            "https://data.sec.gov/api/xbrl/companyfacts/{}.json",
+            "{}/{}.json",
+            Self::COMPANY_FACTS_BASE_URL,
             cik.unwrap_or_default()
         );
-        let client = self.http_client.client();
-        let response = client.get(url).send().await?;
-        let response = response.error_for_status()?;
-        let data = response.json().await?;
+        let data = self.fetch_json(&url).await?;
         Ok(data)
     }
 }
