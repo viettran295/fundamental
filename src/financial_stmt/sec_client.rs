@@ -4,7 +4,6 @@ use reqwest::{
     Response,
     header::{HeaderMap, HeaderValue, USER_AGENT},
 };
-use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 #[derive(Debug)]
