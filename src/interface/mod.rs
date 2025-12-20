@@ -1,3 +1,4 @@
+use log::debug;
 use serde::de::DeserializeOwned;
 
 pub trait HttpClient<T> {
@@ -13,6 +14,7 @@ pub trait HttpClient<T> {
         let client = reqwest::Client::builder()
             .user_agent("(contact@example.com)")
             .build()?;
+        debug!("Fetching {}", url);
         let response = client.get(url).send().await?.error_for_status()?;
         let json_data: RustObj = response.json().await?;
         Ok(json_data)
