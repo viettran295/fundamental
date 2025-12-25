@@ -7,8 +7,27 @@ use crate::common::{FiscalPeriod, FormReport, MetaData};
 
 use chrono::{Datelike, Utc};
 use serde_json::{Map, Value};
+use std::collections::BTreeMap;
+
+pub struct StatementHistory<T> {
+    pub records: Vec<T>,
+}
+
+impl<T: FinancialStatement> StatementHistory<T> {
+    pub fn default() -> Self {
+        Self {
+            records: Vec::new(),
+        }
+    }
+    pub fn fill_history(&mut self, json_data: &Value) -> Result<(), Box<dyn std::error::Error>> {
+        let mut tmp = T::default();
+        self.records = tmp.parse_history(json_data)?;
+        Ok(())
+    }
+}
 
 pub trait FinancialStatement: Default {
+    const MAX_HISTORY_YEARS: usize = 5;
     /// Get GAAP tags of  financial statements
     fn get_gaap_tags(&self) -> &[&'static str];
 
@@ -46,6 +65,39 @@ pub trait FinancialStatement: Default {
             }
         }
         Ok(())
+    }
+
+    fn parse_history(
+        &mut self,
+        json_data: &Value,
+    ) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
+        let facts = Self::extract_us_gaap(json_data)?;
+        let gaap_tags = self.get_gaap_tags().to_vec();
+        let current_year = Utc::now().year();
+        let cutoff_year = current_year - Self::MAX_HISTORY_YEARS as i32;
+        let mut history: BTreeMap<&str, Self> = BTreeMap::new();
+
+        for gaap_tag in gaap_tags {
+            let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, gaap_tag)?;
+            for data in facts_data.iter().rev() {
+                if data["form"] != "10-K" {
+                    continue;
+                }
+                let end_date = data["end"].as_str().unwrap_or_default();
+                let year_prefix = end_date.split('-').next().unwrap_or("");
+                if let Ok(report_year) = year_prefix.parse::<i32>() {
+                    if report_year > cutoff_year {
+                        let entry = history.entry(end_date).or_insert_with(|| Self::default());
+                        entry.fill_from_sec_json(data, gaap_tag);
+                    } else {
+                        break;
+                    }
+                } else {
+                    continue;
+                }
+            }
+        }
+        Ok(history.into_values().rev().collect())
     }
 
     /// Extract field 'us-gaap' from SEC json raw response

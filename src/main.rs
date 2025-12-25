@@ -1,12 +1,16 @@
 mod common;
 mod financial_stmt;
 mod interface;
+mod processor;
 mod ratios;
 
 use crate::{
     financial_stmt::{
-        FinancialStatement, balance_sheet::BalanceSheet, cash_flow::CashFlow,
-        income_statement::IncomeStatement, sec_client::ConfiguredHttpClient, sec_client::SecClient,
+        FinancialStatement, StatementHistory,
+        balance_sheet::BalanceSheet,
+        cash_flow::CashFlow,
+        income_statement::IncomeStatement,
+        sec_client::{ConfiguredHttpClient, SecClient},
     },
     interface::HttpClient,
 };
@@ -27,9 +31,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cash_flow = CashFlow::default();
     cash_flow.parse_annually_latest(&json).expect("Err");
 
-    println!("{:?}", income_stmt);
-    println!("{:?}", balance_sheet);
-    println!("{:?}", cash_flow);
+    let mut bs_history = StatementHistory::<BalanceSheet>::default();
+    bs_history.fill_history(&json).expect("Err");
+    for rec in bs_history.records {
+        println!("{:?}", rec);
+        println!("-------")
+    }
+
+    let mut ic_history = StatementHistory::<IncomeStatement>::default();
+    ic_history.fill_history(&json).expect("Err");
+    for rec in ic_history.records {
+        println!("{:?}", rec);
+        println!("-------")
+    }
+
+    let mut cf_history = StatementHistory::<CashFlow>::default();
+    cf_history.fill_history(&json).expect("Err");
+    for rec in cf_history.records {
+        println!("{:?}", rec);
+        println!("-------")
+    }
 
     Ok(())
 }
