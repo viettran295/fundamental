@@ -14,3 +14,5 @@ env_logger = "0.11"
 chrono = "0.4"
 quick-xml = "0.31"
 futures = "0.3.31"
+redis = { version = "1.0.2", features = ["tokio-comp"] }
+async-trait = "0.1.89"
