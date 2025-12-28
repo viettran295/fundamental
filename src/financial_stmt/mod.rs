@@ -29,7 +29,7 @@ impl<T: FinancialStatement> StatementHistory<T> {
 pub trait FinancialStatement: Default {
     const MAX_HISTORY_YEARS: usize = 5;
     /// Get GAAP tags of  financial statements
-    fn get_gaap_tags(&self) -> &[&'static str];
+    fn get_gaap_tags(&self) -> &[String];
 
     /// Get meta data
     fn get_metadata(&mut self) -> &mut MetaData;
@@ -41,9 +41,9 @@ pub trait FinancialStatement: Default {
         let facts = Self::extract_us_gaap(json_data)?;
         let gaap_tags = self.get_gaap_tags().to_vec();
         for gaap_tag in gaap_tags {
-            let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, gaap_tag)?;
+            let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, &gaap_tag)?;
             let latest_data = facts_data.last().unwrap();
-            self.fill_from_sec_json(latest_data, gaap_tag);
+            self.fill_from_sec_json(latest_data, gaap_tag.clone());
         }
         Ok(())
     }
@@ -56,10 +56,10 @@ pub trait FinancialStatement: Default {
         let current_year = Utc::now().year();
         let gaap_tags = self.get_gaap_tags().to_vec();
         for gaap_tag in gaap_tags {
-            let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, gaap_tag)?;
+            let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, &gaap_tag)?;
             for latest_data in facts_data.iter().rev() {
                 if latest_data["fy"].as_i64().unwrap() == current_year as i64 {
-                    self.fill_from_sec_json(latest_data, gaap_tag);
+                    self.fill_from_sec_json(latest_data, gaap_tag.clone());
                     break;
                 }
             }
@@ -75,10 +75,10 @@ pub trait FinancialStatement: Default {
         let gaap_tags = self.get_gaap_tags().to_vec();
         let current_year = Utc::now().year();
         let cutoff_year = current_year - Self::MAX_HISTORY_YEARS as i32;
-        let mut history: BTreeMap<&str, Self> = BTreeMap::new();
+        let mut history: BTreeMap<String, Self> = BTreeMap::new();
 
         for gaap_tag in gaap_tags {
-            let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, gaap_tag)?;
+            let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, &gaap_tag)?;
             for data in facts_data.iter().rev() {
                 if data["form"] != "10-K" {
                     continue;
@@ -87,8 +87,10 @@ pub trait FinancialStatement: Default {
                 let year_prefix = end_date.split('-').next().unwrap_or("");
                 if let Ok(report_year) = year_prefix.parse::<i32>() {
                     if report_year > cutoff_year {
-                        let entry = history.entry(end_date).or_insert_with(|| Self::default());
-                        entry.fill_from_sec_json(data, gaap_tag);
+                        let entry = history
+                            .entry(end_date.to_string())
+                            .or_insert_with(|| Self::default());
+                        entry.fill_from_sec_json(data, gaap_tag.clone());
                     } else {
                         break;
                     }
@@ -112,7 +114,7 @@ pub trait FinancialStatement: Default {
     /// Extract gaap tag in USD from 'us-gaap' field
     fn extract_gaap_tag_in_unit_usd<'a>(
         facts: &'a Map<String, Value>,
-        gaap_tag: &str,
+        gaap_tag: &'a String,
     ) -> Result<&'a Vec<Value>, Box<dyn std::error::Error>> {
         let data = facts
             .get(gaap_tag)
@@ -123,30 +125,42 @@ pub trait FinancialStatement: Default {
     }
 
     /// Fill SEC response to internal FinancialStatement
-    fn fill_from_sec_json(&mut self, sec_data: &Value, gaap_tag: &str) {
+    fn fill_from_sec_json(&mut self, sec_data: &Value, gaap_tag: String) {
         let meta_data = self.get_metadata();
         meta_data.start_date = sec_data["start"].as_str().unwrap_or("None").to_owned();
         meta_data.end_date = sec_data["end"].as_str().unwrap_or("None").to_owned();
         meta_data.form_report = FormReport::from(sec_data["form"].as_str().unwrap());
         meta_data.fiscal_period = FiscalPeriod::from(sec_data["fp"].as_str().unwrap());
-        self.set_gaap_value(gaap_tag, sec_data["val"].as_i64().unwrap_or(0));
+        self.set_gaap_value(gaap_tag.as_str(), sec_data["val"].as_i64().unwrap_or(0));
     }
 }
 
 // --- Test ---
 #[cfg(test)]
 mod unittests {
+    use std::vec;
+
     use super::*;
     use serde_json::json;
 
-    #[derive(Debug, Default)]
+    #[derive(Debug)]
     struct MockIncomeStatement {
+        tags: Vec<String>,
         metadata: MetaData,
     }
 
+    impl Default for MockIncomeStatement {
+        fn default() -> Self {
+            Self {
+                tags: vec!["Revenues".to_string(), "NetIncomeLoss".to_string()],
+                metadata: MetaData::default(),
+            }
+        }
+    }
+
     impl FinancialStatement for MockIncomeStatement {
-        fn get_gaap_tags(&self) -> &[&'static str] {
-            &["Revenues", "NetIncomeLoss"]
+        fn get_gaap_tags(&self) -> &[String] {
+            &self.tags
         }
 
         fn get_metadata(&mut self) -> &mut MetaData {
@@ -189,7 +203,7 @@ mod unittests {
         let result = MockIncomeStatement::extract_us_gaap(&json_data);
         assert!(result.is_ok());
         for tag in mock_obj.get_gaap_tags() {
-            assert!(result.as_ref().unwrap().contains_key(*tag));
+            assert!(result.as_ref().unwrap().contains_key(tag));
         }
     }
 
@@ -215,7 +229,7 @@ mod unittests {
         for gaap_tag in mock_obj.get_gaap_tags() {
             let facts_data = MockIncomeStatement::extract_gaap_tag_in_unit_usd(
                 facts.as_ref().unwrap(),
-                gaap_tag,
+                gaap_tag.into(),
             );
             assert!(facts_data.is_ok());
             assert_eq!(facts_data.unwrap().len(), 2);
@@ -226,7 +240,8 @@ mod unittests {
     fn test_extract_gaap_tag_in_unit_usd_missing_tag() {
         let json_data = create_mock_sec_json(2025);
         let facts = MockIncomeStatement::extract_us_gaap(&json_data).unwrap();
-        let result = MockIncomeStatement::extract_gaap_tag_in_unit_usd(facts, "MissingTag");
+        let gaap_tag = String::from("MissingTag");
+        let result = MockIncomeStatement::extract_gaap_tag_in_unit_usd(facts, &gaap_tag);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),

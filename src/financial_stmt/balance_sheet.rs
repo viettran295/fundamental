@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{common::MetaData, financial_stmt::FinancialStatement};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct BalanceSheet {
     pub total_assets: i64,
     pub current_assets: i64,
@@ -8,7 +10,7 @@ pub struct BalanceSheet {
     pub total_liabilities: i64,
     pub current_liabilities: i64,
     pub total_equity: i64,
-    pub sec_us_gaap: [&'static str; 6],
+    pub sec_us_gaap: [String; 6],
     pub financial_facts: MetaData,
 }
 
@@ -22,12 +24,12 @@ impl Default for BalanceSheet {
             current_liabilities: 0,
             total_equity: 0,
             sec_us_gaap: [
-                "LiabilitiesAndStockholdersEquity",
-                "AssetsCurrent",
-                "InventoryNet",
-                "Liabilities",
-                "LiabilitiesCurrent",
-                "StockholdersEquity",
+                "LiabilitiesAndStockholdersEquity".to_string(),
+                "AssetsCurrent".to_string(),
+                "InventoryNet".to_string(),
+                "Liabilities".to_string(),
+                "LiabilitiesCurrent".to_string(),
+                "StockholdersEquity".to_string(),
             ],
             financial_facts: MetaData::default(),
         }
@@ -47,7 +49,7 @@ impl FinancialStatement for BalanceSheet {
         }
     }
 
-    fn get_gaap_tags(&self) -> &[&'static str] {
+    fn get_gaap_tags(&self) -> &[String] {
         &self.sec_us_gaap
     }
 

@@ -1,13 +1,15 @@
+use serde::{Deserialize, Serialize};
+
 use crate::common::MetaData;
 use crate::financial_stmt::FinancialStatement;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CashFlow {
     pub operating_cash_flow: i64,
     pub investing_cash_flow: i64,
     pub financing_cash_flow: i64,
     pub end_cash_flow_position: i64,
-    pub sec_us_gaap: [&'static str; 4],
+    pub sec_us_gaap: [String; 4],
     pub financial_facts: MetaData,
 }
 
@@ -19,10 +21,10 @@ impl Default for CashFlow {
             financing_cash_flow: 0,
             end_cash_flow_position: 0,
             sec_us_gaap: [
-                "NetCashProvidedByUsedInOperatingActivities",
-                "NetCashProvidedByUsedInInvestingActivities",
-                "NetCashProvidedByUsedInFinancingActivities",
-                "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+                "NetCashProvidedByUsedInOperatingActivities".to_string(),
+                "NetCashProvidedByUsedInInvestingActivities".to_string(),
+                "NetCashProvidedByUsedInFinancingActivities".to_string(),
+                "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents".to_string(),
             ],
             financial_facts: MetaData::default(),
         }
@@ -42,7 +44,7 @@ impl FinancialStatement for CashFlow {
         }
     }
 
-    fn get_gaap_tags(&self) -> &[&'static str] {
+    fn get_gaap_tags(&self) -> &[String] {
         &self.sec_us_gaap
     }
 

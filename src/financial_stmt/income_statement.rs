@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use crate::common::MetaData;
 use crate::financial_stmt::FinancialStatement;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct IncomeStatement {
     pub total_revenue: i64,
     pub cost_of_revenue: i64,
@@ -9,7 +11,7 @@ pub struct IncomeStatement {
     pub operating_expense: i64,
     pub operating_income: i64,
     pub net_income: i64,
-    pub sec_us_gaap: [&'static str; 6],
+    pub sec_us_gaap: [String; 6],
     pub financial_facts: MetaData,
 }
 
@@ -23,12 +25,12 @@ impl Default for IncomeStatement {
             operating_income: 0,
             net_income: 0,
             sec_us_gaap: [
-                "Revenues",
-                "CostOfRevenue",
-                "GrossProfit",
-                "OperatingExpenses",
-                "NonoperatingIncomeExpense",
-                "NetIncomeLoss",
+                "Revenues".to_string(),
+                "CostOfRevenue".to_string(),
+                "GrossProfit".to_string(),
+                "OperatingExpenses".to_string(),
+                "NonoperatingIncomeExpense".to_string(),
+                "NetIncomeLoss".to_string(),
             ],
             financial_facts: MetaData::default(),
         }
@@ -48,7 +50,7 @@ impl FinancialStatement for IncomeStatement {
         }
     }
 
-    fn get_gaap_tags(&self) -> &[&'static str] {
+    fn get_gaap_tags(&self) -> &[String] {
         &self.sec_us_gaap
     }
 

@@ -1,4 +1,6 @@
-#[derive(Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum FormReport {
     Invalid,
     Quarly,
@@ -15,7 +17,7 @@ impl From<&str> for FormReport {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum FiscalPeriod {
     Invalid,
     Q1,
@@ -36,7 +38,7 @@ impl From<&str> for FiscalPeriod {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MetaData {
     #[allow(unused)]
     pub accn: String,
