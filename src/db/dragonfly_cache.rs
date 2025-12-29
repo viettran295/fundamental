@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::{error, warn};
 use redis::{AsyncTypedCommands, aio::MultiplexedConnection};
 
-use crate::data::{DataManager, DataManagerError};
+use crate::db::{DataManager, DataManagerError};
 
 pub struct DragonFlyCache {
     client_: redis::Client,

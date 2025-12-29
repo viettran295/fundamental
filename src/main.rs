@@ -1,5 +1,5 @@
 mod common;
-mod data;
+mod db;
 mod financial_stmt;
 mod interface;
 mod jobs;
