@@ -1,56 +1,34 @@
 mod common;
+mod data;
 mod financial_stmt;
 mod interface;
+mod jobs;
 mod processor;
 mod ratios;
 
+use std::sync::Arc;
+
+use axum::{Router, routing::get};
+use dotenvy::dotenv;
+use tokio::sync::Mutex;
+
 use crate::{
-    financial_stmt::{
-        FinancialStatement, StatementHistory,
-        balance_sheet::BalanceSheet,
-        cash_flow::CashFlow,
-        income_statement::IncomeStatement,
-        sec_client::{ConfiguredHttpClient, SecClient},
-    },
-    interface::HttpClient,
+    financial_stmt::sec_client::{ConfiguredHttpClient, SecClient},
+    jobs::requests_handler,
 };
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() {
     env_logger::init();
-    let conf_client = ConfiguredHttpClient::new()?;
-    let sec_client = SecClient::new(String::from("NVDA"), conf_client);
-    let json = sec_client.fetch_data().await?;
+    dotenv().expect(".env not found");
 
-    let mut income_stmt = IncomeStatement::default();
-    income_stmt.parse_quarly_latest(&json).expect("Err");
+    let conf_client = ConfiguredHttpClient::new().unwrap_or_default();
+    let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""), conf_client)));
 
-    let mut balance_sheet = BalanceSheet::default();
-    balance_sheet.parse_quarly_latest(&json).expect("Err");
+    let app = Router::new()
+        .route("/{ticker}", get(requests_handler))
+        .with_state(sec_client);
 
-    let mut cash_flow = CashFlow::default();
-    cash_flow.parse_annually_latest(&json).expect("Err");
-
-    let mut bs_history = StatementHistory::<BalanceSheet>::default();
-    bs_history.fill_history(&json).expect("Err");
-    for rec in bs_history.records {
-        println!("{:?}", rec);
-        println!("-------")
-    }
-
-    let mut ic_history = StatementHistory::<IncomeStatement>::default();
-    ic_history.fill_history(&json).expect("Err");
-    for rec in ic_history.records {
-        println!("{:?}", rec);
-        println!("-------")
-    }
-
-    let mut cf_history = StatementHistory::<CashFlow>::default();
-    cf_history.fill_history(&json).expect("Err");
-    for rec in cf_history.records {
-        println!("{:?}", rec);
-        println!("-------")
-    }
-
-    Ok(())
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }

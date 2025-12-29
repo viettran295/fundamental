@@ -22,8 +22,8 @@ impl DataManager<String, String> for DragonFlyCache {
         let connection = client
             .get_multiplexed_async_connection()
             .await
-            .map_err(|_| {
-                error!("Error connecting to Dragonfly Db");
+            .map_err(|e| {
+                error!("Error connecting to Dragonfly Db: {}", e);
                 DataManagerError::ConnectionFailedError
             })
             .unwrap();
