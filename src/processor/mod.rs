@@ -1,8 +1,17 @@
-use crate::financial_stmt::sec_client::{CompanyTickers, SecClient};
+use crate::{
+    common,
+    financial_stmt::sec_client::{CompanyTickers, SecClient},
+    interface::HttpClient,
+};
 use futures::stream::{self, StreamExt};
 use log::debug;
 use quick_xml::{Reader, events::Event};
-use std::collections::HashMap;
+use serde_json::Value;
+use std::{collections::HashMap, path::Path};
+use tokio::{
+    fs::{self, File},
+    io::AsyncWriteExt,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct Processor {
@@ -12,6 +21,8 @@ pub struct Processor {
 }
 
 impl Processor {
+    const ALL_MARKET_DATA_URL: &str =
+        "https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip";
     const MAX_CONCURRENT_REQUESTS: usize = 8;
     pub async fn map_company_by_industry(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let sec_client = SecClient::default();
@@ -65,5 +76,34 @@ impl Processor {
             buf.clear();
         }
         Ok(sic)
+    }
+}
+
+impl HttpClient<serde_json::Value> for Processor {
+    type Error = reqwest::Error;
+    // Get all companies data from SEC
+    async fn fetch_data(&self) -> Result<serde_json::Value, Self::Error> {
+        let client = Self::create_client()?;
+        let response = client.get(Self::ALL_MARKET_DATA_URL).send().await?;
+        let response = response.error_for_status()?;
+
+        let output_path = format!("{}/all_market_data.zip", common::LOCAL_DATA_STORAGE);
+        let path = Path::new(&output_path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).await.unwrap();
+        }
+        debug!(
+            "Fetch and store all market data from SEC in {}",
+            output_path
+        );
+
+        let mut file = File::create(&output_path).await.unwrap();
+        let mut stream_bytes = response.bytes_stream();
+        while let Some(chunk) = stream_bytes.next().await {
+            let data = chunk.unwrap();
+            file.write_all(&data).await.unwrap();
+        }
+        debug!("Finish to fetch and store all market data from SEC ",);
+        Ok(Value::default())
     }
 }
