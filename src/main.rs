@@ -14,12 +14,13 @@ use tokio::sync::Mutex;
 
 use crate::{
     financial_stmt::sec_client::{ConfiguredHttpClient, SecClient},
-    jobs::requests_handler,
+    jobs::*,
 };
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
+    init_all_jobs().await;
     dotenv().expect(".env not found");
 
     let conf_client = ConfiguredHttpClient::new().unwrap_or_default();

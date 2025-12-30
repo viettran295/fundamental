@@ -87,7 +87,11 @@ impl HttpClient<serde_json::Value> for Processor {
         let response = client.get(Self::ALL_MARKET_DATA_URL).send().await?;
         let response = response.error_for_status()?;
 
-        let output_path = format!("{}/all_market_data.zip", common::LOCAL_DATA_STORAGE);
+        let output_path = format!(
+            "{}/{}",
+            common::LOCAL_DATA_STORAGE,
+            common::ALL_MARKET_DATA_ZIP
+        );
         let path = Path::new(&output_path);
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).await.unwrap();
