@@ -18,3 +18,4 @@ redis = { version = "1.0.2", features = ["tokio-comp"] }
 async-trait = "0.1.89"
 dotenvy = "0.15.7"
 axum = { version = "0.8.8", features = ["macros"] }
+zip = "7.0.0"
