@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use axum::{Router, routing::get};
 use dotenvy::dotenv;
+use log::warn;
 use tokio::sync::Mutex;
 
 use crate::{
@@ -21,7 +22,10 @@ use crate::{
 async fn main() {
     env_logger::init();
     init_all_jobs().await;
-    dotenv().expect(".env not found");
+    match dotenv() {
+        Ok(_) => {}
+        Err(e) => warn!("Error loading file .env: {}", e),
+    }
 
     let conf_client = ConfiguredHttpClient::new().unwrap_or_default();
     let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""), conf_client)));
