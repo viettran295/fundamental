@@ -6,6 +6,7 @@ pub mod sec_client;
 use crate::common::{FiscalPeriod, FormReport, MetaData};
 
 use chrono::{Datelike, Utc};
+use log::warn;
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
@@ -41,8 +42,20 @@ pub trait FinancialStatement: Default {
         let facts = Self::extract_us_gaap(json_data)?;
         let gaap_tags = self.get_gaap_tags().to_vec();
         for gaap_tag in gaap_tags {
-            let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, &gaap_tag)?;
-            let latest_data = facts_data.last().unwrap();
+            let facts_data = match Self::extract_gaap_tag_in_unit_usd(facts, &gaap_tag) {
+                Ok(data) => data,
+                Err(e) => {
+                    warn!("Failed to extract gaap tag: {} - {}", gaap_tag, e);
+                    continue;
+                }
+            };
+            let latest_data = match facts_data.last() {
+                Some(data) => data,
+                None => {
+                    warn!("Latest data of: {} is None", gaap_tag);
+                    continue;
+                }
+            };
             self.fill_from_sec_json(latest_data, gaap_tag.clone());
         }
         Ok(())
@@ -56,9 +69,15 @@ pub trait FinancialStatement: Default {
         let current_year = Utc::now().year();
         let gaap_tags = self.get_gaap_tags().to_vec();
         for gaap_tag in gaap_tags {
-            let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, &gaap_tag)?;
+            let facts_data = match Self::extract_gaap_tag_in_unit_usd(facts, &gaap_tag) {
+                Ok(data) => data,
+                Err(e) => {
+                    warn!("Failed to extract gaap tag: {} - {}", gaap_tag, e);
+                    continue;
+                }
+            };
             for latest_data in facts_data.iter().rev() {
-                if latest_data["fy"].as_i64().unwrap() == current_year as i64 {
+                if latest_data["fy"].as_i64().unwrap_or_default() == current_year as i64 {
                     self.fill_from_sec_json(latest_data, gaap_tag.clone());
                     break;
                 }

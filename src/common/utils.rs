@@ -71,7 +71,7 @@ pub async fn load_company_data(ticker: &String) -> Result<Value, Box<dyn Error +
     let mut cik = SecClient::ticker_to_cik(&ticker)
         .await
         .map_err(|e| {
-            warn!("Can not find CIK of {}", ticker);
+            warn!("Can not find CIK of {}: {}", ticker, e);
         })
         .unwrap()
         .ok_or_else(|| {

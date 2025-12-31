@@ -1,8 +1,10 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use axum::debug_handler;
 use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use axum::{Json, debug_handler};
 use chrono::Utc;
 use cron::Schedule;
 use log::{debug, warn};
@@ -24,16 +26,18 @@ use crate::{
 pub async fn requests_handler(
     State(sec_client): State<Arc<Mutex<SecClient>>>,
     Path((ticker, period)): Path<(String, FormReport)>,
-) -> String {
+) -> Result<impl IntoResponse, (StatusCode, String)> {
     let json: Value = match utils::load_company_data(&ticker).await {
         Ok(data) => data,
         Err(_) => {
             let mut lock_client = sec_client.lock().await;
-            lock_client.set_ticker(ticker);
-            let json: Value = match lock_client.fetch_data().await {
-                Ok(data) => data,
-                Err(_) => Value::default(),
-            };
+            lock_client.set_ticker(ticker.clone());
+            let json = lock_client.fetch_data().await.map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Error fetch data for {}: {}", ticker, e),
+                )
+            })?;
             json
         }
     };
@@ -42,35 +46,39 @@ pub async fn requests_handler(
     let mut cash_flow = CashFlow::default();
     match period {
         FormReport::Annually => {
-            if let Err(e) = income_stmt.parse_annually_latest(&json) {
-                return format!("Parsing error: {}", e);
-            }
-            if let Err(e) = balance_sheet.parse_annually_latest(&json) {
-                return format!("Parsing error: {}", e);
-            }
-            if let Err(e) = cash_flow.parse_annually_latest(&json) {
-                return format!("Parsing error: {}", e);
-            }
+            income_stmt
+                .parse_annually_latest(&json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+            balance_sheet
+                .parse_annually_latest(&json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+            cash_flow
+                .parse_annually_latest(&json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
         }
         FormReport::Quarly => {
-            if let Err(e) = income_stmt.parse_quarly_latest(&json) {
-                return format!("Parsing error: {}", e);
-            }
-            if let Err(e) = balance_sheet.parse_quarly_latest(&json) {
-                return format!("Parsing error: {}", e);
-            }
-            if let Err(e) = cash_flow.parse_quarly_latest(&json) {
-                return format!("Parsing error: {}", e);
-            }
+            income_stmt
+                .parse_quarly_latest(&json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+            balance_sheet
+                .parse_quarly_latest(&json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+            cash_flow
+                .parse_quarly_latest(&json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
         }
-        FormReport::Invalid => return format!("Invalid request period. Use annually or quarly."),
+        FormReport::Invalid => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                format!("Invalid request period. Use annually or quarly."),
+            ));
+        }
     }
-    let response = json!({
+    Ok(Json(json!({
         "balance_sheet": balance_sheet,
         "income_statement": income_stmt,
         "cash_flow": cash_flow
-    });
-    response.to_string()
+    })))
 }
 
 pub async fn init_all_jobs() {
