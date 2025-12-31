@@ -1,7 +1,15 @@
 use log::{debug, error, warn};
-use std::{fs, io, path};
+use serde_json::Value;
+use std::{
+    error::Error,
+    fs::{self, File},
+    io::{self, BufReader},
+    path,
+};
 use tokio::task;
 use zip::ZipArchive;
+
+use crate::{common, financial_stmt::sec_client::SecClient};
 
 pub async fn decompress_zip_file(file_path: &str) -> io::Result<()> {
     let own_zip_path = file_path.to_owned();
@@ -56,4 +64,34 @@ pub async fn decompress_zip_file(file_path: &str) -> io::Result<()> {
             Err(io::Error::new(io::ErrorKind::Other, e))
         }
     }
+}
+
+/// Load all market company data locally in data/all_market_data
+pub async fn load_company_data(ticker: &String) -> Result<Value, Box<dyn Error + Send + Sync>> {
+    let mut cik = SecClient::ticker_to_cik(&ticker)
+        .await
+        .map_err(|e| {
+            warn!("Can not find CIK of {}", ticker);
+        })
+        .unwrap()
+        .ok_or_else(|| {
+            warn!("Error getting CIK of {}", ticker);
+        })
+        .unwrap();
+    cik.push_str(".json");
+    let all_market_data_path = format!("{}/all_market_data", common::LOCAL_DATA_STORAGE);
+    if let Ok(entries) = fs::read_dir(all_market_data_path) {
+        for entry in entries.flatten() {
+            if entry.file_type().unwrap().is_file() {
+                if entry.file_name() == cik.as_str() {
+                    debug!("Found {} - {} locally", ticker, cik);
+                    let file = File::open(entry.path())?;
+                    let reader = BufReader::new(file);
+                    let json_data: Value = serde_json::from_reader(reader)?;
+                    return Ok(json_data);
+                }
+            }
+        }
+    }
+    Err("Not found".into())
 }

@@ -6,11 +6,11 @@ use axum::extract::{Path, State};
 use chrono::Utc;
 use cron::Schedule;
 use log::{debug, warn};
-use serde_json::json;
+use serde_json::{Value, json};
 use tokio::sync::Mutex;
 use tokio::{fs, time};
 
-use crate::common::{self, FormReport};
+use crate::common::{self, FormReport, utils};
 use crate::processor::Processor;
 use crate::{
     financial_stmt::{
@@ -25,13 +25,18 @@ pub async fn requests_handler(
     State(sec_client): State<Arc<Mutex<SecClient>>>,
     Path((ticker, period)): Path<(String, FormReport)>,
 ) -> String {
-    let mut lock_client = sec_client.lock().await;
-    lock_client.set_ticker(ticker);
-    let json = match lock_client.fetch_data().await {
+    let json: Value = match utils::load_company_data(&ticker).await {
         Ok(data) => data,
-        Err(_) => return String::new(),
+        Err(_) => {
+            let mut lock_client = sec_client.lock().await;
+            lock_client.set_ticker(ticker);
+            let json: Value = match lock_client.fetch_data().await {
+                Ok(data) => data,
+                Err(_) => Value::default(),
+            };
+            json
+        }
     };
-
     let mut income_stmt = IncomeStatement::default();
     let mut balance_sheet = BalanceSheet::default();
     let mut cash_flow = CashFlow::default();

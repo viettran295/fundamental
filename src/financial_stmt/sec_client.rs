@@ -93,7 +93,7 @@ impl SecClient {
 
     /// Fetch company's metadata Standard Industry Code (SIC)
     pub async fn fetch_sic(&self) -> Result<String, Box<dyn std::error::Error>> {
-        let cik = self.ticker_to_cik().await?;
+        let cik = Self::ticker_to_cik(&self.ticker).await?;
         let url = format!(
             "{}&CIK={}",
             Self::SIC_BASE_URL,
@@ -115,11 +115,13 @@ impl SecClient {
         Ok(json_response)
     }
 
-    async fn ticker_to_cik(&self) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    pub async fn ticker_to_cik(
+        ticker: &String,
+    ) -> Result<Option<String>, Box<dyn std::error::Error>> {
         let sec_response: SecResponse = Self::fetch_json(Self::TICKER_LOOKUP_URL).await?;
         let company_tickers: Vec<CompanyTickersExchange> = sec_response.data;
         for company_ticker in company_tickers {
-            if company_ticker.ticker.unwrap_or(String::from("")) == self.ticker {
+            if company_ticker.ticker.unwrap_or(String::from("")) == *ticker {
                 return Ok(Some(Self::add_cik_padding(company_ticker.cik)));
             }
         }
@@ -142,7 +144,7 @@ impl HttpClient<serde_json::Value> for SecClient {
     type Error = reqwest::Error;
 
     async fn fetch_data(&self) -> Result<Value, Self::Error> {
-        let cik = self.ticker_to_cik().await.unwrap_or_else(|e| {
+        let cik = Self::ticker_to_cik(&self.ticker).await.unwrap_or_else(|e| {
             warn!("Error getting CIK: {}", e);
             None
         });
