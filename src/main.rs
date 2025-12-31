@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use axum::{Router, routing::get};
 use dotenvy::dotenv;
-use log::{warn, error};
+use log::{error, warn};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -43,7 +43,7 @@ async fn main() {
         }
     };
     match axum::serve(listener, app).await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
             error!("Error initializing server: {}", e);
             return;
