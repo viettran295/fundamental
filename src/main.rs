@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use axum::{Router, routing::get};
 use dotenvy::dotenv;
-use log::warn;
+use log::{warn, error};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -35,6 +35,18 @@ async fn main() {
         .route("/{ticker}/{period}", get(requests_handler))
         .with_state(sec_client);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = match tokio::net::TcpListener::bind("0.0.0.0:3000").await {
+        Ok(listener) => listener,
+        Err(e) => {
+            error!("Error connecting TCP: {}", e);
+            return;
+        }
+    };
+    match axum::serve(listener, app).await {
+        Ok(_) => {},
+        Err(e) => {
+            error!("Error initializing server: {}", e);
+            return;
+        }
+    };
 }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::interface::HttpClient;
 
-use log::debug;
+use log::{debug, warn};
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use serde_json::Value;
 
@@ -142,7 +142,10 @@ impl HttpClient<serde_json::Value> for SecClient {
     type Error = reqwest::Error;
 
     async fn fetch_data(&self) -> Result<Value, Self::Error> {
-        let cik = self.ticker_to_cik().await.unwrap_or_default();
+        let cik = self.ticker_to_cik().await.unwrap_or_else(|e| {
+            warn!("Error getting CIK: {}", e);
+            None
+        });
         let url = format!(
             "{}/{}.json",
             Self::COMPANY_FACTS_BASE_URL,
