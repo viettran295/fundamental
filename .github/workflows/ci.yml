@@ -39,10 +39,7 @@ jobs:
     name: Build Docker image
     runs-on: ubuntu-24.04
     if: github.ref == 'refs/heads/master'
-    strategy:
-      matrix:
-        platform: [linux/amd64, linux/arm64]
-      
+    
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -61,9 +58,9 @@ jobs:
       with:
         context: .
         # Build image in both architectures
-        platforms: ${{ matrix.platform }}
+        platforms: linux/amd64, linux/arm64
         file: ./Dockerfile
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/fundamental:latest
-        cache-from: type=gha,scope=${{ matrix.platform }}
-        cache-to: type=gha,scope=${{ matrix.platform }},mode=max
+        cache-from: type=gha,scope=docker-build
+        cache-to: type=gha,scope=docker-build,mode=max
