@@ -38,6 +38,7 @@ jobs:
   build-docker-images:
     name: Build Docker image
     runs-on: ubuntu-24.04
+    if: github.ref == 'refs/heads/master'
       
     steps:
     - name: Checkout repository
