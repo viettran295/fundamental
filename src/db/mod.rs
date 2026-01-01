@@ -4,10 +4,10 @@ use async_trait::async_trait;
 
 #[derive(Debug)]
 pub enum DataManagerError {
-    GeneralError(String),
-    NotFoundError,
-    ConnectionFailedError,
-    SeDerializeError,
+    General(String),
+    NotFound,
+    ConnectionFailed,
+    SerDerialize,
 }
 
 #[async_trait]

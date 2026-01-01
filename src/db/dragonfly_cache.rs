@@ -16,7 +16,7 @@ impl DataManager<String, String> for DragonFlyCache {
             Ok(client) => client,
             Err(_) => {
                 error!("Error openning to Dragonfly Db");
-                return Err(DataManagerError::ConnectionFailedError);
+                return Err(DataManagerError::ConnectionFailed);
             }
         };
         let connection = client
@@ -24,7 +24,7 @@ impl DataManager<String, String> for DragonFlyCache {
             .await
             .map_err(|e| {
                 error!("Error connecting to Dragonfly Db: {}", e);
-                DataManagerError::ConnectionFailedError
+                DataManagerError::ConnectionFailed
             })
             .unwrap();
         Ok(Self {
@@ -45,7 +45,7 @@ impl DataManager<String, String> for DragonFlyCache {
             Ok(value) => value,
             Err(e) => {
                 warn!("Not found value of key: {:?} - {}", key, e);
-                return Err(DataManagerError::NotFoundError);
+                return Err(DataManagerError::NotFound);
             }
         };
         Ok(stored_value.unwrap_or_default())
