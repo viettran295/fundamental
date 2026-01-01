@@ -32,13 +32,12 @@ pub async fn requests_handler(
         Err(_) => {
             let mut lock_client = sec_client.lock().await;
             lock_client.set_ticker(ticker.clone());
-            let json = lock_client.fetch_data().await.map_err(|e| {
+            lock_client.fetch_data().await.map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     format!("Error fetch data for {}: {}", ticker, e),
                 )
-            })?;
-            json
+            })?
         }
     };
     let mut income_stmt = IncomeStatement::default();
@@ -70,7 +69,7 @@ pub async fn requests_handler(
         FormReport::Invalid => {
             return Err((
                 StatusCode::BAD_REQUEST,
-                format!("Invalid request period. Use annually or quarly."),
+                "Invalid request period. Use annually or quarly.".to_owned(),
             ));
         }
     }

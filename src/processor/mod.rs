@@ -40,13 +40,13 @@ impl Processor {
             .collect::<Vec<_>>()
             .await;
         for (ticker, res) in results {
-            if let Ok(xml) = res {
-                if let Ok(Some(sic)) = Self::extract_sic(&xml) {
-                    self.company_industry_mapping
-                        .entry(sic)
-                        .or_default()
-                        .push(ticker.cik_str);
-                }
+            if let Ok(xml) = res
+                && let Ok(Some(sic)) = Self::extract_sic(&xml)
+            {
+                self.company_industry_mapping
+                    .entry(sic)
+                    .or_default()
+                    .push(ticker.cik_str);
             }
         }
         Ok(())
