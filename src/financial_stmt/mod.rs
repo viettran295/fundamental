@@ -38,6 +38,11 @@ pub trait FinancialStatement: Default {
     /// Set GAAP tags to struct fields
     fn set_gaap_value(&mut self, gaap_tag: &str, value: i64);
 
+    /// Labels in US-GAAP is not standard.
+    /// E.g: OperatingExpenses does not exist,
+    /// it is repalced by: OperatingExpenses = CostsAndExpenses - CostOfRevenue.
+    fn additional_process(&mut self);
+
     fn parse_quarly_latest(&mut self, json_data: &Value) -> Result<(), Box<dyn std::error::Error>> {
         let facts = Self::extract_us_gaap(json_data)?;
         let gaap_tags = self.get_gaap_tags().to_vec();
@@ -58,6 +63,7 @@ pub trait FinancialStatement: Default {
             };
             self.fill_from_sec_json(latest_data, gaap_tag.clone());
         }
+        self.additional_process();
         Ok(())
     }
 
@@ -83,6 +89,7 @@ pub trait FinancialStatement: Default {
                 }
             }
         }
+        self.additional_process();
         Ok(())
     }
 
@@ -187,6 +194,8 @@ mod unittests {
         }
 
         fn set_gaap_value(&mut self, _gaap_tag: &str, _value: i64) {}
+
+        fn additional_process(&mut self) {}
     }
 
     fn create_mock_sec_json(current_year: i32) -> Value {

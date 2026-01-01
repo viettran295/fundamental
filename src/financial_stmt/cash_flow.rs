@@ -9,6 +9,7 @@ pub struct CashFlow {
     pub investing_cash_flow: i64,
     pub financing_cash_flow: i64,
     pub end_cash_flow_position: i64,
+    #[serde(skip_serializing)]
     pub sec_us_gaap: [String; 4],
     pub financial_facts: MetaData,
 }
@@ -51,4 +52,6 @@ impl FinancialStatement for CashFlow {
     fn get_metadata(&mut self) -> &mut MetaData {
         &mut self.financial_facts
     }
+
+    fn additional_process(&mut self) {}
 }
