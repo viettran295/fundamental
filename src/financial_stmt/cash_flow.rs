@@ -9,6 +9,7 @@ pub struct CashFlow {
     pub investing_cash_flow: i64,
     pub financing_cash_flow: i64,
     pub end_cash_flow_position: i64,
+    #[serde(default)]
     #[serde(skip_serializing)]
     pub sec_us_gaap: [String; 4],
     pub financial_facts: MetaData,

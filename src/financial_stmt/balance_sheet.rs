@@ -10,6 +10,7 @@ pub struct BalanceSheet {
     pub total_liabilities: i64,
     pub current_liabilities: i64,
     pub total_equity: i64,
+    #[serde(default)]
     #[serde(skip_serializing)]
     pub sec_us_gaap: [String; 6],
     pub financial_facts: MetaData,

@@ -12,6 +12,7 @@ pub struct IncomeStatement {
     pub operating_expense: i64,
     pub operating_income: i64,
     pub net_income: i64,
+    #[serde(default)]
     #[serde(skip_serializing)]
     pub sec_us_gaap: [String; 10],
     pub financial_facts: MetaData,
