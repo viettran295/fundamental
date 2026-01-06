@@ -20,3 +20,4 @@ dotenvy = "0.15.7"
 axum = { version = "0.8.8", features = ["macros"] }
 zip = "7.0.0"
 cron = "0.15.0"
+tower = "0.5.2"

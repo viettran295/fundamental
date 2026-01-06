@@ -102,7 +102,7 @@ impl SecClient {
                 .unwrap_or_default()
         );
         debug!("Fetching SIC");
-        let data = Self::fetch_xml(&url).await?;
+        let data = Self::fetch_xml(url).await?;
         Ok(data)
     }
 
@@ -111,14 +111,16 @@ impl SecClient {
     ) -> Result<HashMap<String, CompanyTickers>, Box<dyn std::error::Error>> {
         type CompanyMap = HashMap<String, CompanyTickers>;
         debug!("Fetching all company tickers");
-        let json_response: CompanyMap = Self::fetch_json(Self::COMPANY_TICKERS_SIMPLIFIED).await?;
+        let json_response: CompanyMap =
+            Self::fetch_json(Self::COMPANY_TICKERS_SIMPLIFIED.to_string()).await?;
         Ok(json_response)
     }
 
     pub async fn ticker_to_cik(
         ticker: &String,
     ) -> Result<Option<String>, Box<dyn std::error::Error>> {
-        let sec_response: SecResponse = Self::fetch_json(Self::TICKER_LOOKUP_URL).await?;
+        let sec_response: SecResponse =
+            Self::fetch_json(Self::TICKER_LOOKUP_URL.to_string()).await?;
         let company_tickers: Vec<CompanyTickersExchange> = sec_response.data;
         for company_ticker in company_tickers {
             if company_ticker.ticker.unwrap_or(String::from("")) == *ticker {
@@ -153,7 +155,7 @@ impl HttpClient<serde_json::Value> for SecClient {
             Self::COMPANY_FACTS_BASE_URL,
             cik.unwrap_or_default()
         );
-        let data = Self::fetch_json(&url).await?;
+        let data = Self::fetch_json(url).await?;
         Ok(data)
     }
 }

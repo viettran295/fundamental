@@ -3,12 +3,25 @@ pub mod cash_flow;
 pub mod income_statement;
 pub mod sec_client;
 
-use crate::common::{FiscalPeriod, FormReport, MetaData};
+use crate::{
+    common::{FiscalPeriod, FormReport, MetaData},
+    financial_stmt::{
+        balance_sheet::BalanceSheet, cash_flow::CashFlow, income_statement::IncomeStatement,
+    },
+};
 
 use chrono::{Datelike, Utc};
 use log::warn;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct FinancialReport {
+    pub balance_sheet: BalanceSheet,
+    pub income_statement: IncomeStatement,
+    pub cash_flow: CashFlow,
+}
 
 pub struct StatementHistory<T> {
     pub records: Vec<T>,
@@ -38,6 +51,11 @@ pub trait FinancialStatement: Default {
     /// Set GAAP tags to struct fields
     fn set_gaap_value(&mut self, gaap_tag: &str, value: i64);
 
+    /// Labels in US-GAAP is not standard.
+    /// E.g: OperatingExpenses does not exist,
+    /// it is repalced by: OperatingExpenses = CostsAndExpenses - CostOfRevenue.
+    fn additional_process(&mut self);
+
     fn parse_quarly_latest(&mut self, json_data: &Value) -> Result<(), Box<dyn std::error::Error>> {
         let facts = Self::extract_us_gaap(json_data)?;
         let gaap_tags = self.get_gaap_tags().to_vec();
@@ -58,6 +76,7 @@ pub trait FinancialStatement: Default {
             };
             self.fill_from_sec_json(latest_data, gaap_tag.clone());
         }
+        self.additional_process();
         Ok(())
     }
 
@@ -83,6 +102,7 @@ pub trait FinancialStatement: Default {
                 }
             }
         }
+        self.additional_process();
         Ok(())
     }
 
@@ -187,6 +207,8 @@ mod unittests {
         }
 
         fn set_gaap_value(&mut self, _gaap_tag: &str, _value: i64) {}
+
+        fn additional_process(&mut self) {}
     }
 
     fn create_mock_sec_json(current_year: i32) -> Value {
