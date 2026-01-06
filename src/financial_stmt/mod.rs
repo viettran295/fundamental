@@ -3,12 +3,25 @@ pub mod cash_flow;
 pub mod income_statement;
 pub mod sec_client;
 
-use crate::common::{FiscalPeriod, FormReport, MetaData};
+use crate::{
+    common::{FiscalPeriod, FormReport, MetaData},
+    financial_stmt::{
+        balance_sheet::BalanceSheet, cash_flow::CashFlow, income_statement::IncomeStatement,
+    },
+};
 
 use chrono::{Datelike, Utc};
 use log::warn;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct FinancialReport {
+    pub balance_sheet: BalanceSheet,
+    pub income_statement: IncomeStatement,
+    pub cash_flow: CashFlow,
+}
 
 pub struct StatementHistory<T> {
     pub records: Vec<T>,

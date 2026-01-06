@@ -13,6 +13,7 @@ use tokio::sync::Mutex;
 use tokio::{fs, time};
 
 use crate::common::{self, FormReport, utils};
+use crate::financial_stmt::FinancialReport;
 use crate::processor::Processor;
 use crate::{
     financial_stmt::{
@@ -73,10 +74,10 @@ pub async fn requests_handler(
             ));
         }
     }
-    Ok(Json(json!({
-        "balance_sheet": balance_sheet,
-        "income_statement": income_stmt,
-        "cash_flow": cash_flow
+    Ok(Json(json!(FinancialReport {
+        balance_sheet: balance_sheet,
+        income_statement: income_stmt,
+        cash_flow: cash_flow,
     })))
 }
 
