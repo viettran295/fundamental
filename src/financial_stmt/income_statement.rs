@@ -5,16 +5,19 @@ use crate::financial_stmt::FinancialStatement;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IncomeStatement {
+    #[serde(alias = "SalesRevenueNet")]
+    #[serde(alias = "RevenueFromContractWithCustomerExcludingAssessedTax")]
     pub total_revenue: i64,
     pub cost_and_expenses: i64,
     pub cost_of_revenue: i64,
     pub gross_profit: i64,
     pub operating_expense: i64,
+    #[serde(alias = "OperatingIncomeLoss")]
     pub operating_income: i64,
     pub net_income: i64,
     #[serde(default)]
     #[serde(skip_serializing)]
-    pub sec_us_gaap: [String; 10],
+    pub sec_us_gaap: [String; 11],
     pub financial_facts: MetaData,
 }
 
@@ -35,6 +38,7 @@ impl Default for IncomeStatement {
                 "SalesRevenueNet".to_string(),
                 // This label is equivalent to 'Revenues' in AMZN.
                 "RevenueFromContractWithCustomerExcludingAssessedTax".to_string(),
+                // This label is in AMZN
                 "CostsAndExpenses".to_string(),
                 "CostOfRevenue".to_string(),
                 // This label is equivalent to 'CostOfRevenues' in AMZN.
@@ -42,6 +46,8 @@ impl Default for IncomeStatement {
                 "GrossProfit".to_string(),
                 "OperatingExpenses".to_string(),
                 "NonoperatingIncomeExpense".to_string(),
+                // Operating income (NonoperatingIncomeExpense) for COIN
+                "OperatingIncomeLoss".to_string(),
                 "NetIncomeLoss".to_string(),
             ],
             financial_facts: MetaData::default(),
@@ -61,6 +67,7 @@ impl FinancialStatement for IncomeStatement {
             "GrossProfit" => self.gross_profit = value,
             "OperatingExpenses" => self.operating_expense = value,
             "NonoperatingIncomeExpense" => self.operating_income = value,
+            "OperatingIncomeLoss" => self.operating_income = value,
             "NetIncomeLoss" => self.net_income = value,
             _ => {}
         }

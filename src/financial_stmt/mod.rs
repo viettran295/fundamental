@@ -85,7 +85,12 @@ pub trait FinancialStatement: Default {
         json_data: &Value,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let facts = Self::extract_us_gaap(json_data)?;
-        let current_year = Utc::now().year();
+        let mut current_year = Utc::now().year() - 1;
+        let current_month = Utc::now().month();
+        // Get data of last year when current time is in Q1
+        if current_month < 4 {
+            current_year -= 1;
+        }
         let gaap_tags = self.get_gaap_tags().to_vec();
         for gaap_tag in gaap_tags {
             let facts_data = match Self::extract_gaap_tag_in_unit_usd(facts, &gaap_tag) {
@@ -96,7 +101,9 @@ pub trait FinancialStatement: Default {
                 }
             };
             for latest_data in facts_data.iter().rev() {
-                if latest_data["fy"].as_i64().unwrap_or_default() == current_year as i64 {
+                if latest_data["fy"].as_i64().unwrap_or_default() == current_year as i64
+                    && latest_data["form"] == "10-K"
+                {
                     self.fill_from_sec_json(latest_data, gaap_tag.clone());
                     break;
                 }

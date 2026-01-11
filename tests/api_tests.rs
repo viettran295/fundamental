@@ -94,13 +94,14 @@ async fn test_zero_fields_in_json_response() {
                     report.balance_sheet.total_liabilities,
                     failed_tests
                 );
-
-                is_zero!(
-                    symbol,
-                    "cost_and_expenses",
-                    report.income_statement.cost_and_expenses,
-                    failed_tests
-                );
+                if symbol == "AMZN" {
+                    is_zero!(
+                        symbol,
+                        "cost_and_expenses",
+                        report.income_statement.cost_and_expenses,
+                        failed_tests
+                    );
+                }
                 is_zero!(
                     symbol,
                     "cost_of_revenue",
