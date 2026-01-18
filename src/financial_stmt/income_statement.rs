@@ -17,7 +17,7 @@ pub struct IncomeStatement {
     pub net_income: i64,
     #[serde(default)]
     #[serde(skip_serializing)]
-    pub sec_us_gaap: [String; 11],
+    pub sec_us_gaap: [String; 12],
     pub financial_facts: MetaData,
 }
 
@@ -43,6 +43,8 @@ impl Default for IncomeStatement {
                 "CostOfRevenue".to_string(),
                 // This label is equivalent to 'CostOfRevenues' in AMZN.
                 "CostOfGoodsAndServicesSold".to_string(),
+                // This label is equivalent to 'CostOfRevenues' in COIN.
+                "InformationTechnologyAndDataProcessing".to_string(),
                 "GrossProfit".to_string(),
                 "OperatingExpenses".to_string(),
                 "NonoperatingIncomeExpense".to_string(),
@@ -64,6 +66,7 @@ impl FinancialStatement for IncomeStatement {
             "CostsAndExpenses" => self.cost_and_expenses = value,
             "CostOfRevenue" => self.cost_of_revenue = value,
             "CostOfGoodsAndServicesSold" => self.cost_of_revenue = value,
+            "InformationTechnologyAndDataProcessing" => self.cost_of_revenue = value,
             "GrossProfit" => self.gross_profit = value,
             "OperatingExpenses" => self.operating_expense = value,
             "NonoperatingIncomeExpense" => self.operating_income = value,

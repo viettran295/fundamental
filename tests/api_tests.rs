@@ -36,9 +36,9 @@ async fn test_zero_fields_in_json_response() {
         .with_state(sec_client);
 
     let mut failed_tests: Vec<String> = Vec::new();
-    let symbols: [&str; 13] = [
+    let symbols: [&str; 17] = [
         "AAPL", "COIN", "NVDA", "GOOG", "MSFT", "AMZN", "PLTR", "MSTR", "JPM", "META", "TSLA",
-        "AMD", "NFLX",
+        "AMD", "NFLX", "ORCL", "SHOP", "AVGO", "CRWD"
     ];
 
     for symbol in symbols {

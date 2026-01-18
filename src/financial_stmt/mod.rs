@@ -175,8 +175,8 @@ pub trait FinancialStatement: Default {
         let meta_data = self.get_metadata();
         meta_data.start_date = sec_data["start"].as_str().unwrap_or("None").to_owned();
         meta_data.end_date = sec_data["end"].as_str().unwrap_or("None").to_owned();
-        meta_data.form_report = FormReport::from(sec_data["form"].as_str().unwrap());
-        meta_data.fiscal_period = FiscalPeriod::from(sec_data["fp"].as_str().unwrap());
+        meta_data.form_report = FormReport::from(sec_data["form"].as_str().unwrap_or_default());
+        meta_data.fiscal_period = FiscalPeriod::from(sec_data["fp"].as_str().unwrap_or_default());
         self.set_gaap_value(gaap_tag.as_str(), sec_data["val"].as_i64().unwrap_or(0));
     }
 }
