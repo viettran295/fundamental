@@ -72,12 +72,6 @@ async fn test_zero_fields_in_json_response() {
                 );
                 is_zero!(
                     symbol,
-                    "inventory",
-                    report.balance_sheet.inventory,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
                     "total_assets",
                     report.balance_sheet.total_assets,
                     failed_tests

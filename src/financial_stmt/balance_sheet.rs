@@ -59,5 +59,9 @@ impl FinancialStatement for BalanceSheet {
         &mut self.financial_facts
     }
 
-    fn additional_process(&mut self) {}
+    fn additional_process(&mut self) {
+        if self.total_liabilities == 0 && self.total_assets != 0 {
+            self.total_liabilities = self.total_assets - self.total_equity;
+        }
+    }
 }
