@@ -26,7 +26,7 @@
           "objective-c": "cd $dir && gcc -framework Cocoa $fileName -o $fileNameWithoutExt && $dir$fileNameWithoutExt",
           "python": "python -u",
           "go": "go run",
-          "rust": "cd $dir && RUST_LOG=debug cargo run"
+          "rust": "cd $dir && cargo fmt && RUST_LOG=debug cargo run"
         },
         "code-runner.showExecutionMessage": false,
         "files.autoSave": "afterDelay",

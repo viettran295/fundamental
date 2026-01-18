@@ -30,7 +30,11 @@ pub async fn requests_handler(
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let json: Value = match utils::load_company_data(&ticker).await {
         Ok(data) => data,
-        Err(_) => {
+        Err(e) => {
+            warn!(
+                "Could not load data locally -> fetching data directly from SEC - {}",
+                e
+            );
             let mut lock_client = sec_client.lock().await;
             lock_client.set_ticker(ticker.clone());
             lock_client.fetch_data().await.map_err(|e| {

@@ -68,16 +68,17 @@ pub async fn decompress_zip_file(file_path: &str) -> io::Result<()> {
 
 /// Load all market company data locally in data/all_market_data
 pub async fn load_company_data(ticker: &String) -> Result<Value, Box<dyn Error + Send + Sync>> {
-    let mut cik = SecClient::ticker_to_cik(ticker)
-        .await
-        .map_err(|e| {
-            warn!("Can not find CIK of {}: {}", ticker, e);
-        })
-        .unwrap()
-        .ok_or_else(|| {
-            warn!("Error getting CIK of {}", ticker);
-        })
-        .unwrap();
+    let cik = match SecClient::ticker_to_cik(ticker).await {
+        Ok(res) => res,
+        Err(e) => {
+            warn!("Error converting ticker to CIK: {}", ticker);
+            return Err(e.to_string().into());
+        }
+    };
+    let mut cik = match cik {
+        Some(value) => value,
+        None => return Err(format!("CIK of {} is None", ticker).into()),
+    };
     cik.push_str(".json");
     let all_market_data_path = format!("{}/all_market_data", common::LOCAL_DATA_STORAGE);
     if let Ok(entries) = fs::read_dir(all_market_data_path) {
