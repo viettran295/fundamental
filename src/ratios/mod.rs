@@ -134,7 +134,7 @@ mod unittests {
     fn test_current_ratio() {
         let current_assets = 1000.0;
         let mut current_liabilities = 5000.0;
-        let mut ratio = Ratios::new();
+        let mut ratio = Ratios::default();
         ratio.current_ratio(current_assets, current_liabilities);
         assert_eq!(ratio.current_ratio, (current_assets / current_liabilities));
 
@@ -148,7 +148,7 @@ mod unittests {
         let current_assets = 1000.0;
         let mut current_liabilities = 500.0;
         let inventory = 200.0;
-        let mut ratio = Ratios::new();
+        let mut ratio = Ratios::default();
         ratio.quick_ratio(current_assets, current_liabilities, inventory);
         assert_eq!(
             ratio.quick_ratio,
@@ -163,7 +163,7 @@ mod unittests {
     fn test_equity_ratio() {
         let total_equity = 1000.0;
         let mut total_asset = 500.0;
-        let mut ratio = Ratios::new();
+        let mut ratio = Ratios::default();
         ratio.equity_ratio(total_equity, total_asset);
         assert_eq!(ratio.equity_ratio, (total_equity / total_asset));
 
@@ -176,7 +176,7 @@ mod unittests {
     fn test_debt_ratio() {
         let total_liabilities = 500.0;
         let mut total_asset = 1000.0;
-        let mut ratio = Ratios::new();
+        let mut ratio = Ratios::default();
         ratio.debt_ratio(total_liabilities, total_asset);
         assert_eq!(ratio.debt_ratio, (total_liabilities / total_asset));
 
@@ -189,7 +189,7 @@ mod unittests {
     fn test_debt_to_equity_ratio() {
         let total_liabilities = 500.0;
         let mut total_equity = 1000.0;
-        let mut ratio = Ratios::new();
+        let mut ratio = Ratios::default();
         ratio.debt_to_equity_ratio(total_liabilities, total_equity);
         assert_eq!(
             ratio.debt_to_equity_ratio,
@@ -204,7 +204,7 @@ mod unittests {
     fn test_gross_profit_margin() {
         let gross_income = 500.0;
         let mut total_revenue = 1000.0;
-        let mut ratio = Ratios::new();
+        let mut ratio = Ratios::default();
         ratio.gross_profit_margin(gross_income, total_revenue);
         assert_eq!(ratio.gross_profit_margin, (gross_income / total_revenue));
 
@@ -217,7 +217,7 @@ mod unittests {
     fn test_operating_profit_margin() {
         let operating_income = 500.0;
         let mut total_revenue = 1000.0;
-        let mut ratio = Ratios::new();
+        let mut ratio = Ratios::default();
         ratio.gross_profit_margin(operating_income, total_revenue);
         assert_eq!(
             ratio.gross_profit_margin,
@@ -232,7 +232,7 @@ mod unittests {
     fn test_net_profit_margin() {
         let net_income = 500.0;
         let mut total_revenue = 1000.0;
-        let mut ratio = Ratios::new();
+        let mut ratio = Ratios::default();
         ratio.net_profit_margin(net_income, total_revenue);
         assert_eq!(ratio.net_grofit_margin, (net_income / total_revenue));
 
