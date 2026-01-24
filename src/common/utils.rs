@@ -94,3 +94,14 @@ pub async fn load_company_data(ticker: &String) -> Result<Value, Box<dyn Error +
     }
     Err("Not found".into())
 }
+
+pub fn round(num: f64, digits: u32) -> f64 {
+    let mut res: f64 = 0.0;
+    if digits < 1 {
+        return res;
+    }
+    let mut base: i32 = 10;
+    base = base.pow(digits);
+    res = (num * base as f64).round() / base as f64;
+    return res;
+}

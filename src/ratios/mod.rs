@@ -1,5 +1,9 @@
 use log::warn;
+use serde::{Deserialize, Serialize};
 
+use crate::common::utils;
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Ratios {
     pub current_ratio: f64,
     pub quick_ratio: f64,
@@ -12,16 +16,16 @@ pub struct Ratios {
 }
 
 impl Ratios {
-    pub fn new() ->Self {
-        Self { 
-            current_ratio: 0.0, 
-            quick_ratio: 0.0, 
-            equity_ratio: 0.0, 
-            debt_ratio: 0.0, 
-            debt_to_equity_ratio: 0.0, 
-            gross_profit_margin: 0.0, 
-            operation_grofit_margin: 0.0, 
-            net_grofit_margin: 0.0 
+    pub fn new() -> Self {
+        Self {
+            current_ratio: 0.0,
+            quick_ratio: 0.0,
+            equity_ratio: 0.0,
+            debt_ratio: 0.0,
+            debt_to_equity_ratio: 0.0,
+            gross_profit_margin: 0.0,
+            operation_grofit_margin: 0.0,
+            net_grofit_margin: 0.0,
         }
     }
     /// # Liquidity ratio
@@ -34,7 +38,7 @@ impl Ratios {
             self.current_ratio = 0.0;
             return;
         }
-        self.current_ratio = current_assets / current_liabilities
+        self.current_ratio = utils::round(current_assets / current_liabilities, 2);
     }
 
     /// # Liquidity ratio
@@ -45,7 +49,7 @@ impl Ratios {
             self.quick_ratio = 0.0;
             return;
         }
-        self.quick_ratio = (current_assets - inventory) / current_liabilities
+        self.quick_ratio = utils::round((current_assets - inventory) / current_liabilities, 2);
     }
 
     /// # Solvency ratio
@@ -58,7 +62,7 @@ impl Ratios {
             self.equity_ratio = 0.0;
             return;
         }
-        self.equity_ratio = total_equity / total_asset
+        self.equity_ratio = utils::round(total_equity / total_asset, 2);
     }
 
     /// # Solvency ratio
@@ -69,7 +73,7 @@ impl Ratios {
             self.debt_ratio = 0.0;
             return;
         }
-        self.debt_ratio = total_liabilities / total_asset
+        self.debt_ratio = utils::round(total_liabilities / total_asset, 2);
     }
 
     /// # Solvency ratio
@@ -81,7 +85,7 @@ impl Ratios {
             self.debt_to_equity_ratio = 0.0;
             return;
         }
-        self.debt_to_equity_ratio = total_liabilities / total_equity
+        self.debt_to_equity_ratio = utils::round(total_liabilities / total_equity, 2);
     }
 
     /// # Profitability ratio
@@ -92,7 +96,7 @@ impl Ratios {
             self.gross_profit_margin = 0.0;
             return;
         }
-        self.gross_profit_margin = gross_income / total_revenue
+        self.gross_profit_margin = utils::round(gross_income / total_revenue, 2);
     }
 
     /// # Profitability ratio
@@ -103,7 +107,7 @@ impl Ratios {
             self.operation_grofit_margin = 0.0;
             return;
         }
-        self.operation_grofit_margin = operating_income / total_revenue
+        self.operation_grofit_margin = utils::round(operating_income / total_revenue, 2);
     }
 
     /// # Profitability ratio
@@ -114,7 +118,7 @@ impl Ratios {
             self.net_grofit_margin = 0.0;
             return;
         }
-        self.net_grofit_margin = net_income / total_revenue
+        self.net_grofit_margin = utils::round(net_income / total_revenue, 2);
     }
 }
 
@@ -129,16 +133,11 @@ mod unittests {
         let mut current_liabilities = 5000.0;
         let mut ratio = Ratios::new();
         ratio.current_ratio(current_assets, current_liabilities);
-        assert_eq!(
-            ratio.current_ratio,
-            (current_assets / current_liabilities)
-        );
+        assert_eq!(ratio.current_ratio, (current_assets / current_liabilities));
+
         current_liabilities = 0.0;
         ratio.current_ratio(current_assets, current_liabilities);
-        assert_eq!(
-            ratio.current_ratio,
-            0.0
-        );
+        assert_eq!(ratio.current_ratio, 0.0);
     }
 
     #[test]
@@ -154,10 +153,7 @@ mod unittests {
         );
         current_liabilities = 0.0;
         ratio.quick_ratio(current_assets, current_liabilities, inventory);
-        assert_eq!(
-            ratio.quick_ratio,
-            0.0
-        );
+        assert_eq!(ratio.quick_ratio, 0.0);
     }
 
     #[test]
@@ -166,10 +162,8 @@ mod unittests {
         let mut total_asset = 500.0;
         let mut ratio = Ratios::new();
         ratio.equity_ratio(total_equity, total_asset);
-        assert_eq!(
-            ratio.equity_ratio,
-            (total_equity / total_asset)
-        );
+        assert_eq!(ratio.equity_ratio, (total_equity / total_asset));
+
         total_asset = 0.0;
         ratio.equity_ratio(total_equity, total_asset);
         assert_eq!(ratio.equity_ratio, 0.0);
@@ -181,10 +175,8 @@ mod unittests {
         let mut total_asset = 1000.0;
         let mut ratio = Ratios::new();
         ratio.debt_ratio(total_liabilities, total_asset);
-        assert_eq!(
-            ratio.debt_ratio,
-            (total_liabilities / total_asset)
-        );
+        assert_eq!(ratio.debt_ratio, (total_liabilities / total_asset));
+
         total_asset = 0.0;
         ratio.debt_ratio(total_liabilities, total_asset);
         assert_eq!(ratio.debt_ratio, 0.0);
@@ -202,10 +194,7 @@ mod unittests {
         );
         total_equity = 0.0;
         ratio.debt_to_equity_ratio(total_liabilities, total_equity);
-        assert_eq!(
-            ratio.debt_to_equity_ratio,
-            0.0
-        );
+        assert_eq!(ratio.debt_to_equity_ratio, 0.0);
     }
 
     #[test]
@@ -214,16 +203,11 @@ mod unittests {
         let mut total_revenue = 1000.0;
         let mut ratio = Ratios::new();
         ratio.gross_profit_margin(gross_income, total_revenue);
-        assert_eq!(
-            ratio.gross_profit_margin,
-            (gross_income / total_revenue)
-        );
+        assert_eq!(ratio.gross_profit_margin, (gross_income / total_revenue));
+
         total_revenue = 0.0;
         ratio.gross_profit_margin(gross_income, total_revenue);
-        assert_eq!(
-            ratio.gross_profit_margin,
-            0.0
-        );
+        assert_eq!(ratio.gross_profit_margin, 0.0);
     }
 
     #[test]
@@ -238,10 +222,7 @@ mod unittests {
         );
         total_revenue = 0.0;
         ratio.gross_profit_margin(operating_income, total_revenue);
-        assert_eq!(
-            ratio.gross_profit_margin,
-            0.0
-        );
+        assert_eq!(ratio.gross_profit_margin, 0.0);
     }
 
     #[test]
@@ -250,10 +231,8 @@ mod unittests {
         let mut total_revenue = 1000.0;
         let mut ratio = Ratios::new();
         ratio.net_profit_margin(net_income, total_revenue);
-        assert_eq!(
-            ratio.net_grofit_margin,
-            (net_income / total_revenue)
-        );
+        assert_eq!(ratio.net_grofit_margin, (net_income / total_revenue));
+
         total_revenue = 0.0;
         ratio.net_profit_margin(net_income, total_revenue);
         assert_eq!(ratio.net_grofit_margin, 0.0);
