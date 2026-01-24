@@ -15,8 +15,8 @@ pub struct Ratios {
     pub net_grofit_margin: f64,
 }
 
-impl Ratios {
-    pub fn new() -> Self {
+impl Default for Ratios {
+    fn default() -> Self {
         Self {
             current_ratio: 0.0,
             quick_ratio: 0.0,
@@ -28,6 +28,9 @@ impl Ratios {
             net_grofit_margin: 0.0,
         }
     }
+}
+
+impl Ratios {
     /// # Liquidity ratio
     /// Current ratio is a short-term liquidity.
     /// It measures a companay's ability to pay short-term obligations.

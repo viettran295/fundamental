@@ -15,10 +15,11 @@ use tokio::{fs, time};
 use crate::common::{self, FormReport, utils};
 use crate::financial_stmt::FinancialReport;
 use crate::processor::Processor;
+use crate::ratios::Ratios;
 use crate::{
     financial_stmt::{
-        FinancialStatement, balance_sheet::BalanceSheet, cash_flow::CashFlow,
-        income_statement::IncomeStatement, sec_client::SecClient,
+        balance_sheet::BalanceSheet, cash_flow::CashFlow, income_statement::IncomeStatement,
+        sec_client::SecClient,
     },
     interface::HttpClient,
 };
@@ -45,44 +46,90 @@ pub async fn requests_handler(
             })?
         }
     };
+    let mut income_statement = IncomeStatement::default();
+    let mut balance_sheet = BalanceSheet::default();
+    let mut cash_flow = CashFlow::default();
+    utils::fill_financial_stmt_data(
+        &mut income_statement,
+        &mut balance_sheet,
+        &mut cash_flow,
+        &period,
+        &json,
+    )?;
+    Ok(Json(json!(FinancialReport {
+        balance_sheet,
+        income_statement,
+        cash_flow,
+    })))
+}
+
+pub async fn ratios_requests_handler(
+    State(sec_client): State<Arc<Mutex<SecClient>>>,
+    Path((ticker, period)): Path<(String, FormReport)>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let json: Value = match utils::load_company_data(&ticker).await {
+        Ok(data) => data,
+        Err(e) => {
+            warn!(
+                "Could not load data locally -> fetching data directly from SEC - {}",
+                e
+            );
+            let mut lock_client = sec_client.lock().await;
+            lock_client.set_ticker(ticker.clone());
+            lock_client.fetch_data().await.map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Error fetch data for {}: {}", ticker, e),
+                )
+            })?
+        }
+    };
     let mut income_stmt = IncomeStatement::default();
     let mut balance_sheet = BalanceSheet::default();
     let mut cash_flow = CashFlow::default();
-    match period {
-        FormReport::Annually => {
-            income_stmt
-                .parse_annually_latest(&json)
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
-            balance_sheet
-                .parse_annually_latest(&json)
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
-            cash_flow
-                .parse_annually_latest(&json)
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
-        }
-        FormReport::Quarly => {
-            income_stmt
-                .parse_quarly_latest(&json)
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
-            balance_sheet
-                .parse_quarly_latest(&json)
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
-            cash_flow
-                .parse_quarly_latest(&json)
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
-        }
-        FormReport::Invalid => {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                "Invalid request period. Use annually or quarly.".to_owned(),
-            ));
-        }
-    }
-    Ok(Json(json!(FinancialReport {
-        balance_sheet: balance_sheet,
-        income_statement: income_stmt,
-        cash_flow: cash_flow,
-    })))
+    utils::fill_financial_stmt_data(
+        &mut income_stmt,
+        &mut balance_sheet,
+        &mut cash_flow,
+        &period,
+        &json,
+    )?;
+    let mut ratios = Ratios::default();
+    ratios.current_ratio(
+        balance_sheet.current_assets as f64,
+        balance_sheet.current_liabilities as f64,
+    );
+    ratios.quick_ratio(
+        balance_sheet.current_assets as f64,
+        balance_sheet.current_liabilities as f64,
+        balance_sheet.inventory as f64,
+    );
+    ratios.equity_ratio(
+        balance_sheet.total_equity as f64,
+        balance_sheet.total_assets as f64,
+    );
+    ratios.debt_ratio(
+        balance_sheet.total_liabilities as f64,
+        balance_sheet.total_assets as f64,
+    );
+    ratios.debt_to_equity_ratio(
+        balance_sheet.total_liabilities as f64,
+        balance_sheet.total_equity as f64,
+    );
+    ratios.gross_profit_margin(
+        income_stmt.gross_profit as f64,
+        income_stmt.total_revenue as f64,
+    );
+    ratios.operating_profit_margin(
+        income_stmt.operating_income as f64,
+        income_stmt.total_revenue as f64,
+    );
+    ratios.net_profit_margin(
+        income_stmt.net_income as f64,
+        income_stmt.total_revenue as f64,
+    );
+
+    Ok(Json(json!(ratios)))
 }
 
 pub async fn init_all_jobs() {

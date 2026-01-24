@@ -1,5 +1,4 @@
 use std::future::Future;
-use std::process::Output;
 
 use log::debug;
 use reqwest::Client;

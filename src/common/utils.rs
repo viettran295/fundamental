@@ -1,3 +1,5 @@
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use log::{debug, error, warn};
 use serde_json::Value;
 use std::{
@@ -9,7 +11,13 @@ use std::{
 use tokio::task;
 use zip::ZipArchive;
 
-use crate::{common, financial_stmt::sec_client::SecClient};
+use crate::{
+    common::{self, FormReport},
+    financial_stmt::{
+        FinancialStatement, balance_sheet::BalanceSheet, cash_flow::CashFlow,
+        income_statement::IncomeStatement, sec_client::SecClient,
+    },
+};
 
 pub async fn decompress_zip_file(file_path: &str) -> io::Result<()> {
     let own_zip_path = file_path.to_owned();
@@ -95,6 +103,45 @@ pub async fn load_company_data(ticker: &String) -> Result<Value, Box<dyn Error +
     Err("Not found".into())
 }
 
+pub fn fill_financial_stmt_data(
+    income_stmt: &mut IncomeStatement,
+    balance_sheet: &mut BalanceSheet,
+    cash_flow: &mut CashFlow,
+    period: &FormReport,
+    json: &Value,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    match period {
+        FormReport::Annually => {
+            income_stmt
+                .parse_annually_latest(json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+            balance_sheet
+                .parse_annually_latest(json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+            cash_flow
+                .parse_annually_latest(json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+            Ok(())
+        }
+        FormReport::Quarly => {
+            income_stmt
+                .parse_quarly_latest(json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+            balance_sheet
+                .parse_quarly_latest(json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+            cash_flow
+                .parse_quarly_latest(json)
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+            Ok(())
+        }
+        FormReport::Invalid => Err((
+            StatusCode::BAD_REQUEST,
+            "Invalid request period. Use annually or quarly.".to_owned(),
+        )),
+    }
+}
+
 pub fn round(num: f64, digits: u32) -> f64 {
     let mut res: f64 = 0.0;
     if digits < 1 {
@@ -103,5 +150,5 @@ pub fn round(num: f64, digits: u32) -> f64 {
     let mut base: i32 = 10;
     base = base.pow(digits);
     res = (num * base as f64).round() / base as f64;
-    return res;
+    res
 }

@@ -31,6 +31,7 @@ async fn main() {
     let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""), conf_client)));
 
     let app = Router::new()
+        .route("/{ticker}/{period}/ratios", get(ratios_requests_handler))
         // Request latest finacial statement of company with period: quarly or yearly
         .route("/{ticker}/{period}", get(requests_handler))
         .with_state(sec_client);
