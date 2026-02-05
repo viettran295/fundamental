@@ -3,7 +3,8 @@ pub mod utils;
 use serde::{Deserialize, Serialize};
 
 pub const LOCAL_DATA_STORAGE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/data");
-pub const ALL_MARKET_DATA_ZIP: &str = "all_market_data.zip";
+pub const MARKET_DATA_ZIP: &str = "market_data.zip";
+pub const MARKET_META_DATA_ZIP: &str = "market_meta_data.zip";
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

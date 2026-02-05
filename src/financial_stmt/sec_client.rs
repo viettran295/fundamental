@@ -40,17 +40,18 @@ pub struct CompanyTickersExchange {
     pub exchange: Option<String>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct CompanyTickers {
     pub cik_str: u32,
     pub ticker: Option<String>,
     pub title: Option<String>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SICResponse {
+    pub cik: String,
     pub sic: String,
-    #[serde(rename = "sicDescription")]
     pub sic_description: String,
 }
 
@@ -108,7 +109,7 @@ impl SecClient {
 
     pub async fn fetch_all_company_tickers(
         &self,
-    ) -> Result<HashMap<String, CompanyTickers>, Box<dyn std::error::Error>> {
+    ) -> Result<HashMap<String, CompanyTickers>, Box<dyn std::error::Error + Send + Sync>> {
         type CompanyMap = HashMap<String, CompanyTickers>;
         debug!("Fetching all company tickers");
         let json_response: CompanyMap =

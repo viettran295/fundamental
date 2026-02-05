@@ -2,10 +2,10 @@
   "image": "mcr.microsoft.com/devcontainers/rust:2-1-bookworm",
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
-      "installDockerBuildx": true
-    }
+      "installDockerBuildx": true,
+    },
   },
-  "forwardPorts": [3000],
+  "appPort": [3000],
   "remoteUser": "vscode",
   "updateRemoteUserUID": true,
   "customizations": {
@@ -18,15 +18,13 @@
         "terminal.integrated.fontSize": 16,
         "workbench.colorCustomizations": {
           "terminal.foreground": "#00FD61",
-          "terminal.background": "#000000"
+          "terminal.background": "#000000",
         },
         "code-runner.executorMap": {
           "c": "cd $dir && gcc $fileName -o $fileNameWithoutExt && ./$fileNameWithoutExt",
           "cpp": "cd $dir && g++ -std=c++20 $fileName -o $fileNameWithoutExt && ./$fileNameWithoutExt",
           "objective-c": "cd $dir && gcc -framework Cocoa $fileName -o $fileNameWithoutExt && $dir$fileNameWithoutExt",
           "python": "python -u",
-          "go": "go run",
-          "rust": "cd $dir && cargo fmt && RUST_LOG=debug cargo run"
         },
         "code-runner.showExecutionMessage": false,
         "files.autoSave": "afterDelay",
@@ -38,7 +36,7 @@
         "diffEditor.codeLens": true,
         "rustowl.underlineThickness": "1",
         "rustowl.displayDelay": 1000,
-        "vim.smartRelativeLine": true
+        "vim.smartRelativeLine": true,
       },
       "extensions": [
         "alefragnani.delphi-themes",
@@ -46,11 +44,11 @@
         "rust-lang.rust-analyzer",
         "vscodevim.vim",
         "usernamehw.errorlens",
-        "vadimcn.vscode-lldb"
-      ]
-    }
+        "vadimcn.vscode-lldb",
+      ],
+    },
   },
   "mounts": [
     "source=${localWorkspaceFolder}/data,target=${containerWorkspaceFolder}/data,type=bind",
-  ]
+  ],
 }

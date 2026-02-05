@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::{
     error::Error,
     fs::{self, File},
-    io::{self, BufReader},
+    io::{self, BufReader, Read},
     path,
 };
 use tokio::task;
@@ -14,8 +14,11 @@ use zip::ZipArchive;
 use crate::{
     common::{self, FormReport},
     financial_stmt::{
-        FinancialStatement, balance_sheet::BalanceSheet, cash_flow::CashFlow,
-        income_statement::IncomeStatement, sec_client::SecClient,
+        FinancialStatement,
+        balance_sheet::BalanceSheet,
+        cash_flow::CashFlow,
+        income_statement::IncomeStatement,
+        sec_client::{SICResponse, SecClient},
     },
 };
 
@@ -74,6 +77,39 @@ pub async fn decompress_zip_file(file_path: &str) -> io::Result<()> {
     }
 }
 
+pub async fn decompress_and_filter_sic(file_path: &str) -> io::Result<()> {
+    let own_zip_path = file_path.to_owned();
+    debug!("Start to decompress and filter SIC data");
+    task::spawn_blocking(move || -> io::Result<()> {
+        let zip_path = path::Path::new(&own_zip_path);
+        let zip_file = fs::File::open(zip_path)?;
+        let mut archive = ZipArchive::new(zip_file)?;
+        let mut sic_responses: Vec<SICResponse> = Vec::new();
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i)?;
+            if file.name().ends_with(".json") {
+                let mut content = String::new();
+                if file.read_to_string(&mut content).is_ok() {
+                    let sic: SICResponse = if let Ok(res) = serde_json::from_str(&content) {
+                        res
+                    } else {
+                        continue;
+                    };
+                    sic_responses.push(sic);
+                }
+            }
+        }
+        let output_path = zip_path.with_extension("json");
+        let json = serde_json::to_string_pretty(&sic_responses)?;
+        fs::write(output_path, json)?;
+        debug!("Finish to decompress and filter SIC data {:?}", zip_path);
+        Ok(())
+    })
+    .await?
+    .map_err(io::Error::other)?;
+    Ok(())
+}
+
 /// Load all market company data locally in data/all_market_data
 pub async fn load_company_data(ticker: &String) -> Result<Value, Box<dyn Error + Send + Sync>> {
     let cik = match SecClient::ticker_to_cik(ticker).await {
@@ -88,7 +124,7 @@ pub async fn load_company_data(ticker: &String) -> Result<Value, Box<dyn Error +
         None => return Err(format!("CIK of {} is None", ticker).into()),
     };
     cik.push_str(".json");
-    let all_market_data_path = format!("{}/all_market_data", common::LOCAL_DATA_STORAGE);
+    let all_market_data_path = format!("{}/market_data", common::LOCAL_DATA_STORAGE);
     if let Ok(entries) = fs::read_dir(all_market_data_path) {
         for entry in entries.flatten() {
             if entry.file_type().unwrap().is_file() && entry.file_name() == cik.as_str() {

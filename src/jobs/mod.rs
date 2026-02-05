@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Instant;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -144,11 +145,7 @@ async fn job_fetch_all_market_data(data_fetcher: &impl HttpClient<serde_json::Va
     // https://www.sec.gov/search-filings/edgar-application-programming-interfaces
     // This job downloads and decompresses all market data from SEC daily at 4am UTC.
     let schedule = Schedule::from_str("0 0 4 * * *").unwrap();
-    let zip_file = format!(
-        "{}/{}",
-        common::LOCAL_DATA_STORAGE,
-        common::ALL_MARKET_DATA_ZIP
-    );
+    let zip_files = vec![common::MARKET_DATA_ZIP, common::MARKET_META_DATA_ZIP];
     for datetime in schedule.upcoming(Utc) {
         let now = Utc::now();
         if let Ok(wait) = datetime.signed_duration_since(now).to_std() {
@@ -160,22 +157,34 @@ async fn job_fetch_all_market_data(data_fetcher: &impl HttpClient<serde_json::Va
         } else {
             continue;
         }
-        debug!("Staring job: fetch_all_market_data");
+        debug!("Starting job: fetch_all_market_data");
         if let Err(e) = data_fetcher.fetch_data().await {
             warn!("Error fetching data in job: fetch_all_market_data: {}", e);
             continue;
         }
-        if let Err(e) = common::utils::decompress_zip_file(&zip_file).await {
-            warn!("Error decompressing in job: fetch_all_market_data: {}", e);
-            continue;
-        }
-        if let Err(e) = fs::remove_file(&zip_file).await {
-            warn!(
-                "Error removing {} in job: fetch_all_market_data: {}",
-                zip_file, e
-            );
-            continue;
+        for file in &zip_files {
+            let zip_file = format!("{}/{}", common::LOCAL_DATA_STORAGE, file);
+            // Decompress and extract SIC data
+            if *file == common::MARKET_META_DATA_ZIP {
+                if let Err(e) = common::utils::decompress_and_filter_sic(&zip_file).await {
+                    warn!("Error decompressing in job: fetch_all_market_data: {}", e);
+                    continue;
+                }
+            } else {
+                if let Err(e) = common::utils::decompress_zip_file(&zip_file).await {
+                    warn!("Error decompressing in job: fetch_all_market_data: {}", e);
+                    continue;
+                }
+            }
+            if let Err(e) = fs::remove_file(&zip_file).await {
+                warn!(
+                    "Error removing {} in job: fetch_all_market_data: {}",
+                    zip_file, e
+                );
+                continue;
+            }
         }
         debug!("Finished job: fetch_all_market_data");
+        break;
     }
 }
