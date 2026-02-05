@@ -1,13 +1,11 @@
-use crate::{
-    common,
-    financial_stmt::sec_client::{CompanyTickers, SecClient},
-    interface::HttpClient,
-};
-use futures::{io::BufWriter, stream::StreamExt};
+use crate::{common, financial_stmt::sec_client::SICResponse, interface::HttpClient};
+use futures::stream::StreamExt;
 use log::{debug, warn};
-use quick_xml::{Reader, events::Event};
 use serde_json::Value;
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
@@ -17,7 +15,7 @@ use tokio::{
 pub struct Processor {
     /// Collections of companies in each industry
     /// Key: SEC Standard industry code (SIC), value: vector of SEC Central index key (CIK)
-    pub company_industry_mapping: HashMap<String, Vec<u32>>,
+    pub map_sic_to_cik: HashMap<String, HashSet<String>>,
 }
 
 impl Processor {
@@ -25,6 +23,25 @@ impl Processor {
         "https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip";
     const MARKET_META_DATA_URL: &str =
         "https://www.sec.gov/Archives/edgar/daily-index/bulkdata/submissions.zip";
+    pub async fn map_sic_to_cik(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let path = format!(
+            "{}/{}",
+            common::LOCAL_DATA_STORAGE,
+            common::MARKET_META_DATA_JSON
+        );
+        let data = fs::read_to_string(path)
+            .await
+            .inspect_err(|e| warn!("{}", e))?;
+        let sic_responses: Vec<SICResponse> =
+            serde_json::from_str(&data).inspect_err(|e| warn!("{}", e))?;
+        for sic_response in sic_responses {
+            self.map_sic_to_cik
+                .entry(sic_response.sic)
+                .or_default()
+                .insert(sic_response.cik);
+        }
+        Ok(())
+    }
 }
 
 impl HttpClient<serde_json::Value> for Processor {

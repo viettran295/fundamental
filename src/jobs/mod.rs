@@ -138,6 +138,10 @@ pub async fn init_all_jobs() {
         let proc = Processor::default();
         job_fetch_all_market_data(&proc).await;
     });
+    tokio::spawn(async {
+        let mut proc = Processor::default();
+        calculate_industry_ratio_average(&mut proc).await;
+    });
 }
 
 async fn job_fetch_all_market_data(data_fetcher: &impl HttpClient<serde_json::Value>) {
@@ -186,5 +190,11 @@ async fn job_fetch_all_market_data(data_fetcher: &impl HttpClient<serde_json::Va
         }
         debug!("Finished job: fetch_all_market_data");
         break;
+    }
+}
+
+async fn calculate_industry_ratio_average(proc: &mut Processor) {
+    if let Err(e) = proc.map_sic_to_cik().await {
+        warn!("Error mapping SIC to CIK: {}", e);
     }
 }
