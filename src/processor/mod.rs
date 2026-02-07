@@ -61,7 +61,7 @@ impl Processor {
             let mut set: JoinSet<Option<[f64; 5]>> = JoinSet::new();
             // current, quick, equity, debt, d_to_e
             let mut sums = [0.0f64; 5];
-            let mut elements = 0;
+            let mut elements = [0; 5];
             for cik in cik_s {
                 let cik = cik.clone();
                 set.spawn(async move {
@@ -100,20 +100,23 @@ impl Processor {
             while let Some(res) = set.join_next().await {
                 if let Ok(Some(ratios)) = res {
                     for i in 0..5 {
+                        if ratios[i] == 0.0 {
+                            continue;
+                        }
                         sums[i] += ratios[i];
+                        elements[i] += 1;
                     }
                 }
-                elements += 1;
             }
             self.map_ratios_industry_average
                 .entry(sic.clone())
                 .or_default()
                 .extend([
-                    ("current_ratio", sums[0] / elements as f64),
-                    ("quick_ratio", sums[1] / elements as f64),
-                    ("equity_ratio", sums[2] / elements as f64),
-                    ("debt_ratio", sums[3] / elements as f64),
-                    ("debt_to_equity_ratio", sums[4] / elements as f64),
+                    ("current_ratio", sums[0] / elements[0] as f64),
+                    ("quick_ratio", sums[1] / elements[1] as f64),
+                    ("equity_ratio", sums[2] / elements[2] as f64),
+                    ("debt_ratio", sums[3] / elements[3] as f64),
+                    ("debt_to_equity_ratio", sums[4] / elements[4] as f64),
                 ]);
         }
         Ok(())
