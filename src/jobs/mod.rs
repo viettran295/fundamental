@@ -1,6 +1,6 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Instant;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -14,6 +14,7 @@ use tokio::sync::Mutex;
 use tokio::{fs, time};
 
 use crate::common::{self, FormReport, utils};
+use crate::db::{DataManager, dragonfly_cache::DragonFlyCache};
 use crate::financial_stmt::FinancialReport;
 use crate::processor::Processor;
 use crate::ratios::Ratios;
@@ -140,7 +141,14 @@ pub async fn init_all_jobs() {
     });
     tokio::spawn(async {
         let mut proc = Processor::default();
-        calculate_industry_ratio_average(&mut proc).await;
+        let mut db = match DragonFlyCache::init("redis://127.0.0.1:6379".to_string()).await {
+            Ok(db) => db,
+            Err(e) => {
+                warn!("Error connecting cache Db: {:?}", e);
+                return;
+            }
+        };
+        calculate_industry_ratio_average(&mut proc, &mut db).await;
     });
 }
 
@@ -193,11 +201,18 @@ async fn job_fetch_all_market_data(data_fetcher: &impl HttpClient<serde_json::Va
     }
 }
 
-async fn calculate_industry_ratio_average(proc: &mut Processor) {
+async fn calculate_industry_ratio_average(
+    proc: &mut Processor,
+    db: &mut impl DataManager<String, HashMap<String, f64>>,
+) {
     if let Err(e) = proc.map_sic_to_cik().await {
         warn!("Error mapping SIC to CIK: {}", e);
     }
     if let Err(e) = proc.calculate_bs_ratios_industry_average().await {
         warn!("Error calculating ratios industry average: {}", e);
     }
+    for (sic, fields) in proc.map_ratios_industry_average.clone() {
+        db.set(sic, fields).await;
+    }
+    println!("{:?}", db.get("3674".to_string()).await.unwrap());
 }

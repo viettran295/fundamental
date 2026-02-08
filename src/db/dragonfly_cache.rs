@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use log::{error, warn};
-use redis::{AsyncTypedCommands, aio::MultiplexedConnection};
+use redis::{AsyncCommands, RedisResult, aio::MultiplexedConnection};
 
 use crate::db::{DataManager, DataManagerError};
 
@@ -10,7 +12,7 @@ pub struct DragonFlyCache {
 }
 
 #[async_trait]
-impl DataManager<String, String> for DragonFlyCache {
+impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
     async fn init(uri: String) -> Result<Self, DataManagerError> {
         let client = match redis::Client::open(uri) {
             Ok(client) => client,
@@ -32,22 +34,22 @@ impl DataManager<String, String> for DragonFlyCache {
             connection_: connection,
         })
     }
-    async fn set(&mut self, key: String, value: String) {
-        match self.connection_.set(&key, value).await {
+
+    async fn set(&mut self, key: String, value: HashMap<String, f64>) {
+        let fields: Vec<(String, f64)> = value.into_iter().map(|(k, v)| (k, v)).collect();
+        let result: RedisResult<()> =
+            AsyncCommands::hset_multiple(&mut self.connection_, &key, &fields).await;
+        match result {
             Ok(_) => {}
             Err(e) => {
                 warn!("Error setting key: {:?} in Dragonfly Db - {}", key, e);
             }
         };
     }
-    async fn get(&mut self, key: String) -> Result<String, DataManagerError> {
-        let stored_value = match self.connection_.get(&key).await {
-            Ok(value) => value,
-            Err(e) => {
-                warn!("Not found value of key: {:?} - {}", key, e);
-                return Err(DataManagerError::NotFound);
-            }
-        };
-        Ok(stored_value.unwrap_or_default())
+
+    async fn get(&mut self, key: String) -> Result<HashMap<String, f64>, DataManagerError> {
+        AsyncCommands::hgetall(&mut self.connection_, &key)
+            .await
+            .map_err(|_| DataManagerError::NotFound)
     }
 }

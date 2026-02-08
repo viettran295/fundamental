@@ -21,7 +21,7 @@ pub struct Processor {
     /// Collections of companies in each industry
     /// Key: SEC Standard industry code (SIC), value: vector of SEC Central index key (CIK)
     pub map_sic_to_cik: HashMap<String, HashSet<String>>,
-    pub map_ratios_industry_average: HashMap<String, HashMap<&'static str, f64>>,
+    pub map_ratios_industry_average: HashMap<String, HashMap<String, f64>>,
 }
 
 impl Processor {
@@ -112,11 +112,11 @@ impl Processor {
                 .entry(sic.clone())
                 .or_default()
                 .extend([
-                    ("current_ratio", sums[0] / elements[0] as f64),
-                    ("quick_ratio", sums[1] / elements[1] as f64),
-                    ("equity_ratio", sums[2] / elements[2] as f64),
-                    ("debt_ratio", sums[3] / elements[3] as f64),
-                    ("debt_to_equity_ratio", sums[4] / elements[4] as f64),
+                    ("current_ratio".into(), sums[0] / elements[0] as f64),
+                    ("quick_ratio".into(), sums[1] / elements[1] as f64),
+                    ("equity_ratio".into(), sums[2] / elements[2] as f64),
+                    ("debt_ratio".into(), sums[3] / elements[3] as f64),
+                    ("debt_to_equity_ratio".into(), sums[4] / elements[4] as f64),
                 ]);
         }
         Ok(())
