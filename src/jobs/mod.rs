@@ -10,7 +10,7 @@ use chrono::Utc;
 use cron::Schedule;
 use log::{debug, error, warn};
 use serde_json::{Value, json};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Notify};
 use tokio::{fs, time};
 
 use crate::common::utils::is_dir_empty;
@@ -136,11 +136,14 @@ pub async fn ratios_requests_handler(
 }
 
 pub async fn init_all_jobs() {
+    let notifier = Arc::new(Notify::new());
+    let n1 = notifier.clone();
+    let n2 = notifier.clone();
     tokio::spawn(async {
         let proc = Processor::default();
-        job_fetch_all_market_data(&proc).await;
+        job_fetch_all_market_data(&proc, n1).await;
     });
-    tokio::spawn(async {
+    tokio::spawn(async move {
         let mut proc = Processor::default();
         let mut db = match DragonFlyCache::init("redis://127.0.0.1:6379".to_string()).await {
             Ok(db) => db,
@@ -149,11 +152,15 @@ pub async fn init_all_jobs() {
                 return;
             }
         };
+        n2.notified().await;
         job_calculate_industry_ratio_average(&mut proc, &mut db).await;
     });
 }
 
-async fn job_fetch_all_market_data(data_fetcher: &impl HttpClient<serde_json::Value>) {
+async fn job_fetch_all_market_data(
+    data_fetcher: &impl HttpClient<serde_json::Value>,
+    notifier: Arc<Notify>,
+) {
     // SEC update bulk zip file nightly at 3:00 a.p ET.
     // https://www.sec.gov/search-filings/edgar-application-programming-interfaces
     // This job downloads and decompresses all market data from SEC daily at 4am UTC.
@@ -161,10 +168,13 @@ async fn job_fetch_all_market_data(data_fetcher: &impl HttpClient<serde_json::Va
     if let Err(e) = fs::create_dir_all(common::LOCAL_DATA_STORAGE).await {
         error!("Error creating local data storage: {}", e);
     }
-    if let Ok(_) = is_dir_empty(common::LOCAL_DATA_STORAGE) {
-        debug!("Local data storage is empty");
-        run_fetch_data(data_fetcher).await;
+    if let Ok(is_empty) = is_dir_empty(common::LOCAL_DATA_STORAGE) {
+        if is_empty {
+            debug!("Local data storage is empty");
+            run_fetch_data(data_fetcher).await;
+        }
     }
+    notifier.notify_one();
     for datetime in schedule.upcoming(Utc) {
         let now = Utc::now();
         if let Ok(wait) = datetime.signed_duration_since(now).to_std() {
@@ -216,6 +226,7 @@ async fn job_calculate_industry_ratio_average(
     proc: &mut Processor,
     db: &mut impl DataManager<String, HashMap<String, f64>>,
 ) {
+    debug!("Starting job: calculate_industry_ratio_average");
     if let Err(e) = proc.map_sic_to_cik().await {
         warn!("Error mapping SIC to CIK: {}", e);
     }
@@ -225,4 +236,5 @@ async fn job_calculate_industry_ratio_average(
     for (sic, fields) in proc.map_ratios_industry_average.clone() {
         db.set(sic, fields).await;
     }
+    debug!("Finished job: calculate_industry_ratio_average");
 }
