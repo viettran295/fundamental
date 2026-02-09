@@ -188,3 +188,8 @@ pub fn round(num: f64, digits: u32) -> f64 {
     res = (num * base as f64).round() / base as f64;
     res
 }
+
+pub fn is_dir_empty(path: &str) -> io::Result<bool> {
+    let entries = fs::read_dir(path);
+    return Ok(entries.iter().next().is_none());
+}

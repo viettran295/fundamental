@@ -8,11 +8,12 @@ use axum::response::IntoResponse;
 use axum::{Json, debug_handler};
 use chrono::Utc;
 use cron::Schedule;
-use log::{debug, warn};
+use log::{debug, error, warn};
 use serde_json::{Value, json};
 use tokio::sync::Mutex;
 use tokio::{fs, time};
 
+use crate::common::utils::is_dir_empty;
 use crate::common::{self, FormReport, utils};
 use crate::db::{DataManager, dragonfly_cache::DragonFlyCache};
 use crate::financial_stmt::FinancialReport;
@@ -148,7 +149,7 @@ pub async fn init_all_jobs() {
                 return;
             }
         };
-        calculate_industry_ratio_average(&mut proc, &mut db).await;
+        job_calculate_industry_ratio_average(&mut proc, &mut db).await;
     });
 }
 
@@ -157,7 +158,13 @@ async fn job_fetch_all_market_data(data_fetcher: &impl HttpClient<serde_json::Va
     // https://www.sec.gov/search-filings/edgar-application-programming-interfaces
     // This job downloads and decompresses all market data from SEC daily at 4am UTC.
     let schedule = Schedule::from_str("0 0 4 * * *").unwrap();
-    let zip_files = vec![common::MARKET_DATA_ZIP, common::MARKET_META_DATA_ZIP];
+    if let Err(e) = fs::create_dir_all(common::LOCAL_DATA_STORAGE).await {
+        error!("Error creating local data storage: {}", e);
+    }
+    if let Ok(_) = is_dir_empty(common::LOCAL_DATA_STORAGE) {
+        debug!("Local data storage is empty");
+        run_fetch_data(data_fetcher).await;
+    }
     for datetime in schedule.upcoming(Utc) {
         let now = Utc::now();
         if let Ok(wait) = datetime.signed_duration_since(now).to_std() {
@@ -169,39 +176,43 @@ async fn job_fetch_all_market_data(data_fetcher: &impl HttpClient<serde_json::Va
         } else {
             continue;
         }
-        debug!("Starting job: fetch_all_market_data");
-        if let Err(e) = data_fetcher.fetch_data().await {
-            warn!("Error fetching data in job: fetch_all_market_data: {}", e);
-            continue;
-        }
-        for file in &zip_files {
-            let zip_file = format!("{}/{}", common::LOCAL_DATA_STORAGE, file);
-            // Decompress and extract SIC data
-            if *file == common::MARKET_META_DATA_ZIP {
-                if let Err(e) = common::utils::decompress_and_filter_sic(&zip_file).await {
-                    warn!("Error decompressing in job: fetch_all_market_data: {}", e);
-                    continue;
-                }
-            } else {
-                if let Err(e) = common::utils::decompress_zip_file(&zip_file).await {
-                    warn!("Error decompressing in job: fetch_all_market_data: {}", e);
-                    continue;
-                }
-            }
-            if let Err(e) = fs::remove_file(&zip_file).await {
-                warn!(
-                    "Error removing {} in job: fetch_all_market_data: {}",
-                    zip_file, e
-                );
-                continue;
-            }
-        }
-        debug!("Finished job: fetch_all_market_data");
-        break;
+        run_fetch_data(data_fetcher).await;
     }
 }
 
-async fn calculate_industry_ratio_average(
+async fn run_fetch_data(data_fetcher: &impl HttpClient<serde_json::Value>) {
+    let zip_files = vec![common::MARKET_DATA_ZIP, common::MARKET_META_DATA_ZIP];
+    debug!("Starting job: fetch_all_market_data");
+    if let Err(e) = data_fetcher.fetch_data().await {
+        warn!("Error fetching data in job: fetch_all_market_data: {}", e);
+        return;
+    }
+    for file in &zip_files {
+        let zip_file = format!("{}/{}", common::LOCAL_DATA_STORAGE, file);
+        // Decompress and extract SIC data
+        if *file == common::MARKET_META_DATA_ZIP {
+            if let Err(e) = common::utils::decompress_and_filter_sic(&zip_file).await {
+                warn!("Error decompressing in job: fetch_all_market_data: {}", e);
+                continue;
+            }
+        } else {
+            if let Err(e) = common::utils::decompress_zip_file(&zip_file).await {
+                warn!("Error decompressing in job: fetch_all_market_data: {}", e);
+                continue;
+            }
+        }
+        if let Err(e) = fs::remove_file(&zip_file).await {
+            warn!(
+                "Error removing {} in job: fetch_all_market_data: {}",
+                zip_file, e
+            );
+            continue;
+        }
+    }
+    debug!("Finished job: fetch_all_market_data");
+}
+
+async fn job_calculate_industry_ratio_average(
     proc: &mut Processor,
     db: &mut impl DataManager<String, HashMap<String, f64>>,
 ) {
@@ -214,5 +225,4 @@ async fn calculate_industry_ratio_average(
     for (sic, fields) in proc.map_ratios_industry_average.clone() {
         db.set(sic, fields).await;
     }
-    println!("{:?}", db.get("3674".to_string()).await.unwrap());
 }
