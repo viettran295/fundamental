@@ -144,7 +144,13 @@ impl HttpClient<serde_json::Value> for Processor {
                 "Fetch {} and store all market data from SEC in {}",
                 url, output_path
             );
-            let mut file = tokio::fs::File::create(&output_path).await.unwrap();
+            let mut file = match tokio::fs::File::create(&output_path).await {
+                Ok(file) => file,
+                Err(e) => {
+                    warn!("Error creating {}: {}", output_path, e);
+                    continue;
+                }
+            };
             let mut stream_bytes = response.bytes_stream();
             while let Some(chunk) = stream_bytes.next().await {
                 let data = chunk?;
