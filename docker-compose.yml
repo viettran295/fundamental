@@ -1,6 +1,6 @@
 services:
   app:
-    image: fund
+    image: viettrann/fundamental
     user: "${UID}:${GID}"
     network_mode: "host"
     volumes:
