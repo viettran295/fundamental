@@ -226,6 +226,12 @@ async fn job_calculate_industry_ratio_average(
     proc: &mut Processor,
     db: &mut impl DataManager<String, HashMap<String, f64>>,
 ) {
+    let check_key = "industry_average_initialized".to_string();
+    if let Ok(_) = db.get(check_key.clone()).await {
+        debug!("Industry average is already cached. Skip job_calculate_industry_ratio_average");
+        return;
+    }
+
     debug!("Starting job: calculate_industry_ratio_average");
     if let Err(e) = proc.map_sic_to_cik().await {
         warn!("Error mapping SIC to CIK: {}", e);
@@ -236,5 +242,6 @@ async fn job_calculate_industry_ratio_average(
     for (sic, fields) in proc.map_ratios_industry_average.clone() {
         db.set(sic, fields).await;
     }
+    db.set(check_key, HashMap::new()).await;
     debug!("Finished job: calculate_industry_ratio_average");
 }
