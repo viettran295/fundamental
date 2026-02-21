@@ -1,12 +1,23 @@
-version: '3.8'
-
 services:
   app:
-    image: viettrann/fundamental
+    image: fund
+    user: "${UID}:${GID}"
+    network_mode: "host"
     volumes:
-      - sec-data:/app/data
+      - ./data:/app/data
     ports:
       - "3000:3000"
-volumes:
-  sec-data:
-    driver: local
+    depends_on:
+      - db
+  db:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    network_mode: "host"
+    ulimits:
+      memlock: -1
+    command: >
+      --maxmemory=2gb 
+      --cache_mode=true 
+      --log_dir="/var/log/dragonfly"
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
