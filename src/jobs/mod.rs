@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -145,7 +146,13 @@ pub async fn init_all_jobs() {
     });
     tokio::spawn(async move {
         let mut proc = Processor::default();
-        let mut db = match DragonFlyCache::init("redis://127.0.0.1:6379".to_string()).await {
+        let mut db = match DragonFlyCache::init(
+            env::var("CACHE_DB_URI")
+                .unwrap_or("redis://127.0.0.1:6379".to_string())
+                .to_string(),
+        )
+        .await
+        {
             Ok(db) => db,
             Err(e) => {
                 warn!("Error connecting cache Db: {:?}", e);
