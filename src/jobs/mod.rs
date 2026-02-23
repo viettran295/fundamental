@@ -146,21 +146,21 @@ pub async fn init_all_jobs() {
     });
     tokio::spawn(async move {
         let mut proc = Processor::default();
-        let mut db = match DragonFlyCache::init(
-            env::var("CACHE_DB_URI")
-                .unwrap_or("redis://127.0.0.1:6379".to_string())
-                .to_string(),
-        )
-        .await
-        {
+        let uri = env::var("CACHE_DB_URI")
+            .unwrap_or("redis://127.0.0.1:6379".to_string())
+            .to_string();
+        let mut db = match DragonFlyCache::init(uri).await {
             Ok(db) => db,
             Err(e) => {
                 warn!("Error connecting cache Db: {:?}", e);
                 return;
             }
         };
-        n2.notified().await;
-        job_calculate_industry_ratio_average(&mut proc, &mut db).await;
+        loop {
+            // Wait for new data
+            n2.notified().await;
+            job_calculate_industry_ratio_average(&mut proc, &mut db).await;
+        }
     });
 }
 
@@ -179,9 +179,9 @@ async fn job_fetch_all_market_data(
         if is_empty {
             debug!("Local data storage is empty");
             run_fetch_data(data_fetcher).await;
+            notifier.notify_one();
         }
     }
-    notifier.notify_one();
     for datetime in schedule.upcoming(Utc) {
         let now = Utc::now();
         if let Ok(wait) = datetime.signed_duration_since(now).to_std() {
@@ -194,6 +194,7 @@ async fn job_fetch_all_market_data(
             continue;
         }
         run_fetch_data(data_fetcher).await;
+        notifier.notify_one();
     }
 }
 
@@ -233,12 +234,6 @@ async fn job_calculate_industry_ratio_average(
     proc: &mut Processor,
     db: &mut impl DataManager<String, HashMap<String, f64>>,
 ) {
-    let check_key = "industry_average_initialized".to_string();
-    if let Ok(_) = db.get(check_key.clone()).await {
-        debug!("Industry average is already cached. Skip job_calculate_industry_ratio_average");
-        return;
-    }
-
     debug!("Starting job: calculate_industry_ratio_average");
     if let Err(e) = proc.map_sic_to_cik().await {
         warn!("Error mapping SIC to CIK: {}", e);
@@ -249,6 +244,5 @@ async fn job_calculate_industry_ratio_average(
     for (sic, fields) in proc.map_ratios_industry_average.clone() {
         db.set(sic, fields).await;
     }
-    db.set(check_key, HashMap::new()).await;
     debug!("Finished job: calculate_industry_ratio_average");
 }
