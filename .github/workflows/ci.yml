@@ -70,6 +70,8 @@ jobs:
           context: .
           # Build image in both architectures
           platforms: linux/amd64, linux/arm64
+          build-args: |
+                CACHE_DB_URI=${{ secrets.CACHE_DB_URI }}
           file: ./Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/fundamental:latest
