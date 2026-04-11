@@ -13,6 +13,7 @@ pub enum FormReport {
     Invalid,
     Quarly,
     Annually,
+    History,
 }
 
 impl From<&str> for FormReport {

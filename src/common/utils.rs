@@ -171,11 +171,31 @@ pub fn fill_financial_stmt_data(
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
             Ok(())
         }
-        FormReport::Invalid => Err((
+        _ => Err((
             StatusCode::BAD_REQUEST,
             "Invalid request period. Use annually or quarly.".to_owned(),
         )),
     }
+}
+
+pub fn fill_financial_stmt_data_history(
+    income_stmt_vec: &mut Vec<IncomeStatement>,
+    balance_sheet_vec: &mut Vec<BalanceSheet>,
+    cash_flow_vec: &mut Vec<CashFlow>,
+    json: &Value,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    *income_stmt_vec = IncomeStatement::default()
+        .parse_history(json)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+
+    *balance_sheet_vec = BalanceSheet::default()
+        .parse_history(json)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+
+    *cash_flow_vec = CashFlow::default()
+        .parse_history(json)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", e)))?;
+    Ok(())
 }
 
 pub fn round(num: f64, digits: u32) -> f64 {

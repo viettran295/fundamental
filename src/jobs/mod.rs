@@ -17,7 +17,7 @@ use tokio::{fs, time};
 use crate::common::utils::is_dir_empty;
 use crate::common::{self, FormReport, utils};
 use crate::db::{DataManager, dragonfly_cache::DragonFlyCache};
-use crate::financial_stmt::FinancialReport;
+use crate::financial_stmt::{FinancialReport, FinancialReportHistory};
 use crate::processor::Processor;
 use crate::ratios::Ratios;
 use crate::{
@@ -50,21 +50,41 @@ pub async fn requests_handler(
             })?
         }
     };
-    let mut income_statement = IncomeStatement::default();
-    let mut balance_sheet = BalanceSheet::default();
-    let mut cash_flow = CashFlow::default();
-    utils::fill_financial_stmt_data(
-        &mut income_statement,
-        &mut balance_sheet,
-        &mut cash_flow,
-        &period,
-        &json,
-    )?;
-    Ok(Json(json!(FinancialReport {
-        balance_sheet,
-        income_statement,
-        cash_flow,
-    })))
+    match period {
+        FormReport::History => {
+            let mut income_statement: Vec<IncomeStatement> = Vec::new();
+            let mut balance_sheet: Vec<BalanceSheet> = Vec::new();
+            let mut cash_flow: Vec<CashFlow> = Vec::new();
+            utils::fill_financial_stmt_data_history(
+                &mut income_statement,
+                &mut balance_sheet,
+                &mut cash_flow,
+                &json,
+            )?;
+            Ok(Json(json!(FinancialReportHistory {
+                balance_sheet,
+                income_statement,
+                cash_flow,
+            })))
+        }
+        _ => {
+            let mut income_statement = IncomeStatement::default();
+            let mut balance_sheet = BalanceSheet::default();
+            let mut cash_flow = CashFlow::default();
+            utils::fill_financial_stmt_data(
+                &mut income_statement,
+                &mut balance_sheet,
+                &mut cash_flow,
+                &period,
+                &json,
+            )?;
+            Ok(Json(json!(FinancialReport {
+                balance_sheet,
+                income_statement,
+                cash_flow,
+            })))
+        }
+    }
 }
 
 pub async fn ratios_requests_handler(

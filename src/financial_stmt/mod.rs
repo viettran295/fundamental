@@ -23,21 +23,11 @@ pub struct FinancialReport {
     pub cash_flow: CashFlow,
 }
 
-pub struct StatementHistory<T> {
-    pub records: Vec<T>,
-}
-
-impl<T: FinancialStatement> StatementHistory<T> {
-    pub fn default() -> Self {
-        Self {
-            records: Vec::new(),
-        }
-    }
-    pub fn fill_history(&mut self, json_data: &Value) -> Result<(), Box<dyn std::error::Error>> {
-        let mut tmp = T::default();
-        self.records = tmp.parse_history(json_data)?;
-        Ok(())
-    }
+#[derive(Debug, Deserialize, Serialize)]
+pub struct FinancialReportHistory {
+    pub balance_sheet: Vec<BalanceSheet>,
+    pub income_statement: Vec<IncomeStatement>,
+    pub cash_flow: Vec<CashFlow>,
 }
 
 pub trait FinancialStatement: Default {
@@ -124,7 +114,13 @@ pub trait FinancialStatement: Default {
         let mut history: BTreeMap<String, Self> = BTreeMap::new();
 
         for gaap_tag in gaap_tags {
-            let facts_data = Self::extract_gaap_tag_in_unit_usd(facts, &gaap_tag)?;
+            let facts_data = match Self::extract_gaap_tag_in_unit_usd(facts, &gaap_tag) {
+                Ok(data) => data,
+                Err(e) => {
+                    warn!("Failed to extract gaap tag: {} - {}", gaap_tag, e);
+                    continue;
+                }
+            };
             for data in facts_data.iter().rev() {
                 if data["form"] != "10-K" {
                     continue;
@@ -132,7 +128,7 @@ pub trait FinancialStatement: Default {
                 let end_date = data["end"].as_str().unwrap_or_default();
                 let year_prefix = end_date.split('-').next().unwrap_or("");
                 if let Ok(report_year) = year_prefix.parse::<i32>() {
-                    if report_year > cutoff_year {
+                    if report_year >= cutoff_year {
                         let entry = history
                             .entry(end_date.to_string())
                             .or_insert_with(|| Self::default());
