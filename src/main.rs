@@ -8,7 +8,7 @@ mod ratios;
 
 use std::sync::Arc;
 
-use axum::{Router, routing::get};
+use axum::{routing::get, Router};
 use dotenvy::dotenv;
 use log::{error, warn};
 use tokio::sync::Mutex;

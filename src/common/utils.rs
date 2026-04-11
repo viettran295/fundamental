@@ -14,11 +14,11 @@ use zip::ZipArchive;
 use crate::{
     common::{self, FormReport},
     financial_stmt::{
-        FinancialStatement,
         balance_sheet::BalanceSheet,
         cash_flow::CashFlow,
         income_statement::IncomeStatement,
         sec_client::{SICResponse, SecClient},
+        FinancialStatement,
     },
 };
 

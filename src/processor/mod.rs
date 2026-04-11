@@ -1,6 +1,6 @@
 use crate::{
     common,
-    financial_stmt::{FinancialStatement, balance_sheet::BalanceSheet, sec_client::SICResponse},
+    financial_stmt::{balance_sheet::BalanceSheet, sec_client::SICResponse, FinancialStatement},
     interface::HttpClient,
     ratios::Ratios,
 };

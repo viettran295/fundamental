@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
-use axum::{Router, body::Body, http::Request, routing::get};
+use axum::{body::Body, http::Request, routing::get, Router};
 use log::error;
 use tokio::sync::Mutex;
 use tower::ServiceExt;
 
 use fundamental::{
     financial_stmt::{
-        FinancialReport,
         sec_client::{ConfiguredHttpClient, SecClient},
+        FinancialReport,
     },
     jobs::requests_handler,
 };
