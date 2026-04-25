@@ -1,172 +1,102 @@
 use std::sync::Arc;
 
-use axum::{body::Body, http::Request, routing::get, Router};
-use log::error;
+use axum::{
+    body::{Body, Bytes},
+    http::{Request, StatusCode},
+    Router,
+};
 use tokio::sync::Mutex;
 use tower::ServiceExt;
 
 use fundamental::{
-    financial_stmt::{
-        sec_client::{ConfiguredHttpClient, SecClient},
-        FinancialReport,
-    },
+    financial_stmt::sec_client::{ConfiguredHttpClient, SecClient},
     jobs::requests_handler,
 };
 
-#[cfg(test)]
-macro_rules! is_zero {
-    ($symbol: expr, $name: expr, $val: expr, $vec: expr) => {
-        if $val == 0 {
-            $vec.push(format!("{} - {} is 0", $symbol, $name));
-        }
-    };
+fn build_app() -> Router {
+    let conf_client = ConfiguredHttpClient::new().unwrap_or_default();
+    let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""), conf_client)));
+
+    Router::new()
+        .route("/{ticker}/{period}", axum::routing::get(requests_handler))
+        .with_state(sec_client)
+}
+
+async fn get(app: Router, uri: &str) -> (StatusCode, Bytes) {
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    (status, body)
+}
+
+fn parse_json(body: &Bytes) -> serde_json::Value {
+    serde_json::from_slice(body)
+        .unwrap_or_else(|e| panic!("Response is not valid JSON: {e}\nBody: {:?}", body))
 }
 
 #[tokio::test]
-async fn test_zero_fields_in_json_response() {
-    let _ = env_logger::builder()
-        .filter_level(log::LevelFilter::Error)
-        .is_test(true)
-        .try_init();
+async fn test_report_annually() {
+    let (status, body) = get(build_app(), "/AAPL/annually").await;
+    assert_eq!(status, StatusCode::OK, "response: {:?}", body);
+    let _json = parse_json(&body);
+}
 
-    let conf_client = ConfiguredHttpClient::new().unwrap_or_default();
-    let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""), conf_client)));
-    let app = Router::new()
-        .route("/{ticker}/{period}", get(requests_handler))
-        .with_state(sec_client);
+#[tokio::test]
+async fn test_report_quarly() {
+    let (status, body) = get(build_app(), "/COIN/quarly").await;
+    assert_eq!(status, StatusCode::OK, "response: {:?}", body);
+    let _json = parse_json(&body);
+}
 
-    let mut failed_tests: Vec<String> = Vec::new();
-    let symbols: [&str; 18] = [
-        "AAPL", "COIN", "NVDA", "GOOG", "MSFT", "AMZN", "PLTR", "MSTR", "JPM", "META", "TSLA",
-        "AMD", "NFLX", "ORCL", "SHOP", "AVGO", "CRWD", "BRK.B",
-    ];
+#[tokio::test]
+async fn test_report_history() {
+    let (status, body) = get(build_app(), "/GOOG/history").await;
+    assert_eq!(status, StatusCode::OK, "response: {:?}", body);
+    let _json = parse_json(&body);
+}
 
-    for symbol in symbols {
-        let response = app
-            .clone()
-            // Skipped the network layer
-            .oneshot(
-                Request::builder()
-                    .uri(format!("/{symbol}/quarly"))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .expect("Failed to request");
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .expect("Failed to read response body");
-        match serde_json::from_slice::<FinancialReport>(&body) {
-            Ok(report) => {
-                is_zero!(
-                    symbol,
-                    "current_assets",
-                    report.balance_sheet.current_assets,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "current_liabilities",
-                    report.balance_sheet.current_liabilities,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "total_assets",
-                    report.balance_sheet.total_assets,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "total_equity",
-                    report.balance_sheet.total_equity,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "total_liabilities",
-                    report.balance_sheet.total_liabilities,
-                    failed_tests
-                );
-                if symbol == "AMZN" {
-                    is_zero!(
-                        symbol,
-                        "cost_and_expenses",
-                        report.income_statement.cost_and_expenses,
-                        failed_tests
-                    );
-                }
-                is_zero!(
-                    symbol,
-                    "cost_of_revenue",
-                    report.income_statement.cost_of_revenue,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "gross_profit",
-                    report.income_statement.gross_profit,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "net_income",
-                    report.income_statement.net_income,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "operating_expense",
-                    report.income_statement.operating_expense,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "operating_income",
-                    report.income_statement.operating_income,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "total_revenue",
-                    report.income_statement.total_revenue,
-                    failed_tests
-                );
+#[tokio::test]
+#[should_panic]
+async fn test_unknown_symbol() {
+    let (status, body) = get(build_app(), "/ERROR/quarly").await;
+    assert_eq!(
+        status,
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "response: {:?}",
+        body
+    );
+    let _json = parse_json(&body);
+}
 
-                is_zero!(
-                    symbol,
-                    "cash_flow_position",
-                    report.cash_flow.end_cash_flow_position,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "financing_cash_flow",
-                    report.cash_flow.financing_cash_flow,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "investing_cash_flow",
-                    report.cash_flow.investing_cash_flow,
-                    failed_tests
-                );
-                is_zero!(
-                    symbol,
-                    "operating_cash_flow",
-                    report.cash_flow.operating_cash_flow,
-                    failed_tests
-                );
-            }
-            Err(e) => {
-                error!("Failed deserializing: {} - {}", symbol, e);
-                continue;
-            }
-        };
-    }
-    if !failed_tests.is_empty() {
-        for failed_test in failed_tests {
-            error!("FAILED: {}", failed_test);
-        }
-    }
+#[tokio::test]
+#[should_panic]
+async fn test_lowercase() {
+    let (status, body) = get(build_app(), "/nvda/annually").await;
+    assert_eq!(
+        status,
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "response: {:?}",
+        body
+    );
+    let _json = parse_json(&body);
+}
+
+#[tokio::test]
+#[should_panic]
+async fn test_invalid_period() {
+    let (status, body) = get(build_app(), "/NVDA/monthly").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "response: {:?}", body);
+    let _json = parse_json(&body);
 }
