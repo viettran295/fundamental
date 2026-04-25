@@ -1,4 +1,4 @@
-name: ci
+name: fundamental-ci/cd
 
 on:
   push:
@@ -48,18 +48,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchains: ${{ matrix.rust }}
+          toolchain: ${{ matrix.rust }}
       - name: Run tests
         run: cargo test --verbose -- --nocapture
 
-  build-docker-images:
+  build-images:
     needs: tests
     name: Build Docker image
     runs-on: ubuntu-24.04
     permissions:
       contents: read
     if: github.ref == 'refs/heads/master'
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -85,3 +84,35 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/fundamental:latest
           cache-from: type=gha,scope=docker-build
           cache-to: type=gha,scope=docker-build,mode=max
+          
+  deploy:
+    runs-on: ubuntu-240.04
+    needs: [build-images]
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_KEY }}
+          port: 22
+          script: |
+            VPS_ARCH=$(uname -m)
+            CONTAINER_NAME="fundamental"
+            ARM64_IMG="${{ secrets.DOCKER_USERNAME }}/${CONTAINER_NAME}:arm64"
+            NETWORK="vtrade-network"
+            docker network inspect $NETWORK >/dev/null 2>&1 || \
+              docker network create $NETWORK
+            if [[ "$VPS_ARCH" == "aarch64" ]]; then
+              docker pull $ARM64_IMG
+              docker stop $CONTAINER_NAME
+              docker rm $CONTAINER_NAME
+              docker run -d \
+                        --name $CONTAINER_NAME \
+                        --network $NETWORK \
+                        -p 3000:3000 \
+                        $ARM64_IMG
+            else
+              echo "Unsupported architecture: $VPS_ARCH"
+              exit 1
+            fi
