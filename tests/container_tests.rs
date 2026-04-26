@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+use fundamental::db::{dragonfly_cache::DragonFlyCache, DataManager};
 use testcontainers::{
     core::{IntoContainerPort, WaitFor},
     runners::AsyncRunner,
@@ -6,12 +9,18 @@ use testcontainers::{
 
 const TEST_IMG: &str = "viettrann/fundamental";
 const TEST_PORT: u16 = 3000;
+const CACHE_DB_IMG: &str = "docker.dragonflydb.io/dragonflydb/dragonfly";
+const CACHE_DB_PORT: u16 = 6379;
 
 #[tokio::test]
 async fn test_period_reports() {
     let reports = vec!["quarly", "annually", "history"];
     let mut container_arch = std::env::consts::ARCH;
-    container_arch = if container_arch == "aarch64" { "arm64" } else { container_arch };
+    container_arch = if container_arch == "aarch64" {
+        "arm64"
+    } else {
+        container_arch
+    };
 
     let container = GenericImage::new(TEST_IMG, container_arch)
         .with_exposed_port(TEST_PORT.tcp())
@@ -30,4 +39,28 @@ async fn test_period_reports() {
         assert_eq!(resp.status(), 200);
         assert_ne!(resp.text().await.unwrap(), "");
     }
+}
+
+#[tokio::test]
+async fn test_cache_db() {
+    let cache_db_container = GenericImage::new(CACHE_DB_IMG, "latest")
+        .with_exposed_port(CACHE_DB_PORT.tcp())
+        .with_wait_for(WaitFor::seconds(5))
+        .start()
+        .await
+        .unwrap();
+    let host = cache_db_container.get_host().await.unwrap();
+    let host_port = cache_db_container
+        .get_host_port_ipv4(CACHE_DB_PORT)
+        .await
+        .unwrap();
+    let mut db = DragonFlyCache::init(format!("redis://{host}:{host_port}"))
+        .await
+        .unwrap();
+
+    let set_val = HashMap::from([(String::from("test"), 10.0)]);
+    let key = String::from("Foo");
+    db.set(key.clone(), set_val.clone()).await;
+    let get_val = db.get(key).await.unwrap();
+    assert_eq!(get_val, set_val);
 }
