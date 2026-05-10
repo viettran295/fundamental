@@ -213,6 +213,9 @@ async fn job_fetch_all_market_data(
         } else {
             continue;
         }
+        if let Err(e) = fs::remove_dir(common::LOCAL_DATA_STORAGE).await {
+            error!("Error cleaning up local data: {}", e);
+        }
         run_fetch_data(data_fetcher).await;
         notifier.notify_one();
     }
