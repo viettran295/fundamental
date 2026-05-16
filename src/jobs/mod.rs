@@ -258,9 +258,6 @@ async fn job_calculate_industry_ratio_average(
     db: &mut impl DataManager<String, HashMap<String, f64>>,
 ) {
     debug!("Starting job: calculate_industry_ratio_average");
-    if let Err(e) = proc.map_sic_to_cik().await {
-        warn!("Error mapping SIC to CIK: {}", e);
-    }
     if let Err(e) = proc.calculate_bs_ratios_industry_average().await {
         warn!("Error calculating ratios industry average: {}", e);
     }
