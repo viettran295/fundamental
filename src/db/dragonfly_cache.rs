@@ -7,7 +7,6 @@ use redis::{aio::MultiplexedConnection, AsyncCommands, RedisResult};
 use crate::db::{DataManager, DataManagerError};
 
 pub struct DragonFlyCache {
-    client_: redis::Client,
     connection_: MultiplexedConnection,
 }
 
@@ -30,7 +29,6 @@ impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
             })
             .unwrap();
         Ok(Self {
-            client_: client,
             connection_: connection,
         })
     }
