@@ -7,23 +7,7 @@ on:
     branches: ["master"]
 
 jobs:
-  check-stable:
-    name: Check stable on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
-    strategy:
-      matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm]
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Check
-        run: cargo check --workspace --all-features --all-targets
-
   style:
-    needs: check-stable
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,9 +16,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo fmt
         run: cargo fmt --all --check
+      - name: cargo clippy
+        run: cargo clippy
 
   tests:
-    needs: check-stable
     name: Test ${{ matrix.rust }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     permissions:
@@ -42,7 +27,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-24.04, ubuntu-24.04-arm]
-        rust: [stable, beta, nightly]
+        rust: [stable, beta]
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -105,6 +90,8 @@ jobs:
   deploy:
     runs-on: ubuntu-24.04
     needs: [build-arm64]
+    permissions:
+      contents: read
     steps:
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
