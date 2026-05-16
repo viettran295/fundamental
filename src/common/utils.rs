@@ -211,5 +211,5 @@ pub fn round(num: f64, digits: u32) -> f64 {
 
 pub fn is_dir_empty(path: &str) -> io::Result<bool> {
     let mut entries = fs::read_dir(path)?;
-    return Ok(entries.next().is_none());
+    Ok(entries.next().is_none())
 }

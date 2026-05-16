@@ -34,7 +34,7 @@ impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
     }
 
     async fn set(&mut self, key: String, value: HashMap<String, f64>) {
-        let fields: Vec<(String, f64)> = value.into_iter().map(|(k, v)| (k, v)).collect();
+        let fields: Vec<(String, f64)> = value.into_iter().collect();
         let result: RedisResult<()> =
             AsyncCommands::hset_multiple(&mut self.connection_, &key, &fields).await;
         match result {
