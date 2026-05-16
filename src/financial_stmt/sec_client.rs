@@ -91,3 +91,37 @@ impl HttpClient<serde_json::Value> for SecClient {
         Ok(data)
     }
 }
+
+#[cfg(test)]
+mod unittests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_ticker_to_cik() {
+        let tickers = vec![
+            String::from("NVDA"),
+            String::from("GOOG"),
+            String::from("META"),
+            String::from("TSLA"),
+            String::from("AAPL"),
+        ];
+        let ciks = vec![
+            String::from("CIK0001045810"),
+            String::from("CIK0001652044"),
+            String::from("CIK0001326801"),
+            String::from("CIK0001318605"),
+            String::from("CIK0000320193"),
+        ];
+        for i in 0..tickers.len() {
+            let cik = SecClient::ticker_to_cik(&tickers[i])
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                ciks[i], cik,
+                "Failed: cik {} and ticker {} dont match",
+                ciks[i], tickers[i]
+            );
+        }
+    }
+}
