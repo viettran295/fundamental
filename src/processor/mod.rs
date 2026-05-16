@@ -219,8 +219,9 @@ impl HttpClient<serde_json::Value> for Processor {
 // ---- Test ----
 #[cfg(test)]
 mod unittests {
-    use crate::{common::utils, jobs};
     use super::*;
+    use crate::{common::utils, jobs};
+    use tokio::fs;
     use tokio::sync::OnceCell;
 
     static DATA_LOCAL: OnceCell<()> = OnceCell::const_new();
@@ -229,6 +230,10 @@ mod unittests {
     async fn setup_local_data() {
         DATA_LOCAL
             .get_or_init(|| async {
+                // Create local data dir if it doesn't exist, then fetch
+                fs::create_dir_all(common::LOCAL_DATA_STORAGE)
+                    .await
+                    .expect("Error creating local data storage");
                 let proc = Processor::default();
                 if utils::is_dir_empty(common::LOCAL_DATA_STORAGE).unwrap() {
                     jobs::run_fetch_data(&proc).await;
