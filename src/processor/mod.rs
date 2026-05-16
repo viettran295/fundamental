@@ -219,10 +219,28 @@ impl HttpClient<serde_json::Value> for Processor {
 // ---- Test ----
 #[cfg(test)]
 mod unittests {
+    use crate::{common::utils, jobs};
     use super::*;
+    use tokio::sync::OnceCell;
+
+    static DATA_LOCAL: OnceCell<()> = OnceCell::const_new();
+
+    // Fetch SEC data for local tests
+    async fn setup_local_data() {
+        DATA_LOCAL
+            .get_or_init(|| async {
+                let proc = Processor::default();
+                if utils::is_dir_empty(common::LOCAL_DATA_STORAGE).unwrap() {
+                    jobs::run_fetch_data(&proc).await;
+                }
+            })
+            .await;
+    }
 
     #[tokio::test]
     async fn test_map_sic_to_cik() {
+        setup_local_data().await;
+
         let nvidia_cik = String::from("0001045810");
         let intel_cik = String::from("0000050863");
         let tsmc_cik = String::from("0001046179");
@@ -263,6 +281,8 @@ mod unittests {
 
     #[tokio::test]
     async fn test_get_data_from_json() {
+        setup_local_data().await;
+
         let nvidia_cik = String::from("0001045810");
         let intel_cik = String::from("0000050863");
         let goog_cik = String::from("0001652044");

@@ -221,7 +221,8 @@ async fn job_fetch_all_market_data(
     }
 }
 
-async fn run_fetch_data(data_fetcher: &impl HttpClient<serde_json::Value>) {
+// Use as public function in crate for unit tests
+pub(crate) async fn run_fetch_data(data_fetcher: &impl HttpClient<serde_json::Value>) {
     let zip_files = vec![common::MARKET_DATA_ZIP, common::MARKET_META_DATA_ZIP];
     debug!("Starting job: fetch_all_market_data");
     if let Err(e) = data_fetcher.fetch_data().await {

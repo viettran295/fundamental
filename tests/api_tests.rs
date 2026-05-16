@@ -8,10 +8,7 @@ use axum::{
 use tokio::sync::Mutex;
 use tower::ServiceExt;
 
-use fundamental::{
-    financial_stmt::sec_client::SecClient,
-    jobs::requests_handler,
-};
+use fundamental::{financial_stmt::sec_client::SecClient, jobs::requests_handler};
 
 fn build_app() -> Router {
     let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""))));
