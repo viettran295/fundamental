@@ -94,6 +94,13 @@ impl HttpClient<serde_json::Value> for SecClient {
 
 #[cfg(test)]
 mod unittests {
+    use crate::{
+        common::utils,
+        financial_stmt::{
+            balance_sheet::BalanceSheet, cash_flow::CashFlow, income_statement::IncomeStatement,
+        },
+    };
+
     use super::*;
 
     #[tokio::test]
@@ -122,6 +129,20 @@ mod unittests {
                 "Failed: cik {} and ticker {} dont match",
                 ciks[i], tickers[i]
             );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_fetch_data() {
+        let tickers = vec![
+            String::from("COIN"),
+            String::from("AAPL"),
+            String::from("META"),
+        ];
+        for ticker in tickers {
+            let sec_client = SecClient::new(ticker);
+            let data = sec_client.fetch_data().await;
+            assert!(data.is_ok());
         }
     }
 }
