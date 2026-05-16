@@ -215,3 +215,73 @@ impl HttpClient<serde_json::Value> for Processor {
         Ok(Value::default())
     }
 }
+
+// ---- Test ----
+#[cfg(test)]
+mod unittests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_map_sic_to_cik() {
+        let nvidia_cik = String::from("0001045810");
+        let intel_cik = String::from("0000050863");
+        let tsmc_cik = String::from("0001046179");
+        let meta_cik = String::from("0001326801");
+        let goog_cik = String::from("0001652044");
+
+        let semiconductors_sic = String::from("3674");
+        let computer_programming_sic = String::from("7370");
+
+        let mut proc = Processor::default();
+        proc.map_sic_to_cik().await.ok();
+
+        let semiconductor_companies = proc.map_sic_to_cik.get(&semiconductors_sic).unwrap();
+        let computer_programming_companies =
+            proc.map_sic_to_cik.get(&computer_programming_sic).unwrap();
+
+        assert!(
+            semiconductor_companies.contains(&nvidia_cik),
+            "Failed: Nvidia CIK missing"
+        );
+        assert!(
+            semiconductor_companies.contains(&intel_cik),
+            "Failed: Intel CIK missing"
+        );
+        assert!(
+            semiconductor_companies.contains(&tsmc_cik),
+            "Failed: Qualcomm CIK missing"
+        );
+        assert!(
+            computer_programming_companies.contains(&meta_cik),
+            "Failed: Meta CIK missing"
+        );
+        assert!(
+            computer_programming_companies.contains(&goog_cik),
+            "Failed: Google CIK missing"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_data_from_json() {
+        let nvidia_cik = String::from("0001045810");
+        let intel_cik = String::from("0000050863");
+        let goog_cik = String::from("0001652044");
+        let companies_cik = vec![nvidia_cik, intel_cik, goog_cik];
+
+        for cik in companies_cik {
+            let data = Processor::get_data_from_json(&cik).await.ok().unwrap();
+            let mut bs = BalanceSheet::default();
+            bs.parse_annually_latest(&data).ok();
+            assert_ne!(
+                bs.total_assets, 0,
+                "Failed: total assets of {} not equal to 0",
+                cik
+            );
+            assert_ne!(
+                bs.total_liabilities, 0,
+                "Failed: total liabilities of {} not equal to 0",
+                cik
+            );
+        }
+    }
+}
