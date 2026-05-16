@@ -259,7 +259,7 @@ async fn job_calculate_industry_ratio_average(
     db: &mut impl DataManager<String, HashMap<String, f64>>,
 ) {
     debug!("Starting job: calculate_industry_ratio_average");
-    if let Err(e) = proc.calculate_bs_ratios_industry_average().await {
+    if let Err(e) = proc.calculate_industry_average_of_finacial_ratios().await {
         warn!("Error calculating ratios industry average: {}", e);
     }
     for (sic, fields) in proc.map_ratios_industry_average.clone() {

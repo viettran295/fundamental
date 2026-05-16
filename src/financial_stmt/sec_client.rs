@@ -94,25 +94,18 @@ impl HttpClient<serde_json::Value> for SecClient {
 
 #[cfg(test)]
 mod unittests {
-    use crate::{
-        common::utils,
-        financial_stmt::{
-            balance_sheet::BalanceSheet, cash_flow::CashFlow, income_statement::IncomeStatement,
-        },
-    };
-
     use super::*;
 
     #[tokio::test]
     async fn test_ticker_to_cik() {
-        let tickers = vec![
+        let tickers = [
             String::from("NVDA"),
             String::from("GOOG"),
             String::from("META"),
             String::from("TSLA"),
             String::from("AAPL"),
         ];
-        let ciks = vec![
+        let ciks = [
             String::from("CIK0001045810"),
             String::from("CIK0001652044"),
             String::from("CIK0001326801"),
@@ -134,7 +127,7 @@ mod unittests {
 
     #[tokio::test]
     async fn test_fetch_data() {
-        let tickers = vec![
+        let tickers = [
             String::from("COIN"),
             String::from("AAPL"),
             String::from("META"),

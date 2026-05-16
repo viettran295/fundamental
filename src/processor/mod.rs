@@ -34,9 +34,8 @@ impl Processor {
         "https://www.sec.gov/Archives/edgar/daily-index/bulkdata/submissions.zip";
     const NUM_RATIOS: usize = 8;
 
-    /// Calculate ratios in balance sheet: current ratio, quick ratio,
-    /// equity ratio, debt ratio, debt to equity ratio
-    pub async fn calculate_bs_ratios_industry_average(
+    /// Calculate industry average of liquidity ratio, solvency ratio and profitability ratio
+    pub async fn calculate_industry_average_of_finacial_ratios(
         &mut self,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if self.map_sic_to_cik.is_empty() {
@@ -122,9 +121,6 @@ impl Processor {
                     ),
                     ("net_profit_margin".into(), sums[7] / elements[7] as f64),
                 ]);
-        }
-        for (k, v) in &self.map_ratios_industry_average {
-            println!("Key: {}, Value: {:?}", k, v);
         }
         Ok(())
     }
@@ -307,6 +303,40 @@ mod unittests {
                 "Failed: total liabilities of {} not equal to 0",
                 cik
             );
+        }
+    }
+    #[tokio::test]
+    async fn test_calculate_industry_average_of_financial_ratios() {
+        setup_local_data().await;
+
+        let semiconductors_sic = String::from("3674");
+        let oil_sic = String::from("3533");
+        let computer_storage_sic = String::from("3572");
+        let sics = [semiconductors_sic, oil_sic, computer_storage_sic];
+        let ratios = [
+            "current_ratio",
+            "quick_ratio",
+            "equity_ratio",
+            "debt_ratio",
+            "debt_to_equity_ratio",
+            "gross_profit_margin",
+            "operating_profit_margin",
+            "net_profit_margin",
+        ];
+        let mut proc = Processor::default();
+        proc.calculate_industry_average_of_finacial_ratios()
+            .await
+            .ok();
+        for sic in sics {
+            let averages = proc
+                .map_ratios_industry_average
+                .get(&sic)
+                .expect(format!("Failed: can not get {} SIC", sic).as_str());
+            for ratio in ratios {
+                let value = averages.get(&ratio.to_string()).unwrap();
+                assert!(value.is_finite(), "Failed: {} is not finite", ratio);
+                assert_ne!(*value, 0.0, "Failed: {} ratio average is 0", ratio);
+            }
         }
     }
 }
