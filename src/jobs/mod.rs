@@ -169,7 +169,10 @@ pub async fn init_all_jobs() {
         let uri = env::var("CACHE_DB_URI")
             .unwrap_or("redis://127.0.0.1:6379".to_string())
             .to_string();
-        let mut db = match DragonFlyCache::init(uri).await {
+        // Timeout for cache db in seconds.
+        // New data is fetched every 24 hours -> Calculate industry average, cache timeout for industry average is 24 hours.
+        let timeout_seconds: i64 = 60 * 60 * 24;
+        let mut db = match DragonFlyCache::init(uri, timeout_seconds).await {
             Ok(db) => db,
             Err(e) => {
                 warn!("Error connecting cache Db: {:?}", e);
@@ -180,6 +183,7 @@ pub async fn init_all_jobs() {
             // Wait for new data
             n2.notified().await;
             if db.is_empty().await.ok().unwrap_or(false) {
+                debug!("Cache db is empty");
                 job_calculate_industry_ratio_average(&mut proc, &mut db).await;
             }
         }

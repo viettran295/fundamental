@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use fundamental::db::{dragonfly_cache::DragonFlyCache, DataManager};
 use testcontainers::{
@@ -54,13 +54,23 @@ async fn test_cache_db() {
         .get_host_port_ipv4(CACHE_DB_PORT)
         .await
         .unwrap();
-    let mut db = DragonFlyCache::init(format!("redis://{host}:{host_port}"))
+    let timeout_sec: i64 = 5;
+    let mut db = DragonFlyCache::init(format!("redis://{host}:{host_port}"), timeout_sec)
         .await
         .unwrap();
 
     let set_val = HashMap::from([(String::from("test"), 10.0)]);
     let key = String::from("Foo");
     db.set(key.clone(), set_val.clone()).await;
-    let get_val = db.get(key).await.unwrap();
+    let get_val = db.get(key.clone()).await.unwrap();
     assert_eq!(get_val, set_val);
+
+    // Test timeout
+    tokio::time::sleep(Duration::from_secs((timeout_sec + 1) as u64)).await;
+    let expire_val = db.get(key.clone()).await.unwrap();
+    assert!(
+        expire_val.is_empty(),
+        "Faile: test key {} should be empty after timeout",
+        key
+    );
 }

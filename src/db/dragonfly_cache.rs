@@ -8,11 +8,12 @@ use crate::db::{DataManager, DataManagerError};
 
 pub struct DragonFlyCache {
     connection_: MultiplexedConnection,
+    timeout_seconds: i64,
 }
 
 #[async_trait]
 impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
-    async fn init(uri: String) -> Result<Self, DataManagerError> {
+    async fn init(uri: String, timeout_seconds: i64) -> Result<Self, DataManagerError> {
         let client = match redis::Client::open(uri) {
             Ok(client) => client,
             Err(_) => {
@@ -30,6 +31,7 @@ impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
             .unwrap();
         Ok(Self {
             connection_: connection,
+            timeout_seconds: timeout_seconds,
         })
     }
 
@@ -38,7 +40,17 @@ impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
         let result: RedisResult<()> =
             AsyncCommands::hset_multiple(&mut self.connection_, &key, &fields).await;
         match result {
-            Ok(_) => {}
+            Ok(_) => {
+                if let Err(e) = AsyncCommands::expire::<String, bool>(
+                    &mut self.connection_,
+                    key.clone(),
+                    self.timeout_seconds,
+                )
+                .await
+                {
+                    warn!("Error setting timeout for {:?}: {}", key, e);
+                }
+            }
             Err(e) => {
                 warn!("Error setting key: {:?} in Dragonfly Db - {}", key, e);
             }
