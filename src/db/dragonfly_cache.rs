@@ -50,4 +50,21 @@ impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
             .await
             .map_err(|_| DataManagerError::NotFound)
     }
+
+    async fn is_empty(&mut self) -> Result<bool, DataManagerError> {
+        let db_size: usize = match redis::cmd("DBSIZE")
+            .query_async(&mut self.connection_)
+            .await
+        {
+            Err(e) => {
+                return Err(DataManagerError::General(format!(
+                    "Error check db size: {}",
+                    e
+                )));
+            }
+            Ok(size) => size,
+        };
+        // If size is 0, the DB is empty
+        Ok(db_size == 0)
+    }
 }

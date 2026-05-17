@@ -17,4 +17,5 @@ pub trait DataManager<K, V> {
         Self: Sized;
     async fn set(&mut self, key: K, value: V);
     async fn get(&mut self, key: K) -> Result<V, DataManagerError>;
+    async fn is_empty(&mut self) -> Result<bool, DataManagerError>;
 }

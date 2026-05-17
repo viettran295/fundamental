@@ -179,7 +179,9 @@ pub async fn init_all_jobs() {
         loop {
             // Wait for new data
             n2.notified().await;
-            job_calculate_industry_ratio_average(&mut proc, &mut db).await;
+            if db.is_empty().await.ok().unwrap_or(false) {
+                job_calculate_industry_ratio_average(&mut proc, &mut db).await;
+            }
         }
     });
 }
@@ -199,6 +201,8 @@ async fn job_fetch_all_market_data(
         if is_empty {
             debug!("Local data storage is empty");
             run_fetch_data(data_fetcher).await;
+            notifier.notify_one();
+        } else {
             notifier.notify_one();
         }
     }
