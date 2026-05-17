@@ -1,34 +1,7 @@
-use std::collections::HashMap;
-
 use crate::interface::HttpClient;
 
-use log::{debug, warn};
-use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
+use log::warn;
 use serde_json::Value;
-
-#[derive(Debug, Default)]
-pub struct ConfiguredHttpClient {
-    client: reqwest::Client,
-}
-
-impl ConfiguredHttpClient {
-    pub fn new() -> Result<Self, reqwest::Error> {
-        let user_agent_value = "(example@example.com)";
-        let header_value = HeaderValue::from_str(user_agent_value)
-            .expect("Error: User-Agent string literal should always be valid");
-        let mut headers = HeaderMap::new();
-        headers.insert(USER_AGENT, header_value);
-
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .build()?;
-        Ok(ConfiguredHttpClient { client })
-    }
-
-    pub fn client(&self) -> &reqwest::Client {
-        &self.client
-    }
-}
 
 #[derive(Debug, serde::Deserialize)]
 pub struct CompanyTickersExchange {
@@ -38,13 +11,6 @@ pub struct CompanyTickersExchange {
     pub ticker: Option<String>,
     #[allow(dead_code)]
     pub exchange: Option<String>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct CompanyTickers {
-    pub cik_str: u32,
-    pub ticker: Option<String>,
-    pub title: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
@@ -66,55 +32,20 @@ struct SecResponse {
 #[derive(Debug, Default)]
 pub struct SecClient {
     ticker: String,
-    http_client: ConfiguredHttpClient,
 }
 
 impl SecClient {
     /// SEC API endpoint for company ticker, which is used for ticker-to-CIK mapping
     const TICKER_LOOKUP_URL: &str = "https://www.sec.gov/files/company_tickers_exchange.json";
-    /// Simplified version of TICKER_LOOKUP_URL
-    const COMPANY_TICKERS_SIMPLIFIED: &str = "https://www.sec.gov/files/company_tickers.json";
-    /// Base URL for submission data
-    const SUBMISSIONS_BASE_URL: &str = "https://data.sec.gov/submissions";
     /// Base URL for company facts data
     const COMPANY_FACTS_BASE_URL: &str = "https://data.sec.gov/api/xbrl/companyfacts";
-    const SIC_BASE_URL: &str =
-        "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&output=atom";
 
-    pub fn new(ticker: String, http_client: ConfiguredHttpClient) -> Self {
-        Self {
-            ticker,
-            http_client,
-        }
+    pub fn new(ticker: String) -> Self {
+        Self { ticker }
     }
 
     pub fn set_ticker(&mut self, ticker: String) {
         self.ticker = ticker;
-    }
-
-    /// Fetch company's metadata Standard Industry Code (SIC)
-    pub async fn fetch_sic(&self) -> Result<String, Box<dyn std::error::Error>> {
-        let cik = Self::ticker_to_cik(&self.ticker).await?;
-        let url = format!(
-            "{}&CIK={}",
-            Self::SIC_BASE_URL,
-            cik.unwrap_or_default()
-                .strip_prefix("CIK")
-                .unwrap_or_default()
-        );
-        debug!("Fetching SIC");
-        let data = Self::fetch_xml(url).await?;
-        Ok(data)
-    }
-
-    pub async fn fetch_all_company_tickers(
-        &self,
-    ) -> Result<HashMap<String, CompanyTickers>, Box<dyn std::error::Error + Send + Sync>> {
-        type CompanyMap = HashMap<String, CompanyTickers>;
-        debug!("Fetching all company tickers");
-        let json_response: CompanyMap =
-            Self::fetch_json(Self::COMPANY_TICKERS_SIMPLIFIED.to_string()).await?;
-        Ok(json_response)
     }
 
     pub async fn ticker_to_cik(
@@ -158,5 +89,53 @@ impl HttpClient<serde_json::Value> for SecClient {
         );
         let data = Self::fetch_json(url).await?;
         Ok(data)
+    }
+}
+
+#[cfg(test)]
+mod unittests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_ticker_to_cik() {
+        let tickers = [
+            String::from("NVDA"),
+            String::from("GOOG"),
+            String::from("META"),
+            String::from("TSLA"),
+            String::from("AAPL"),
+        ];
+        let ciks = [
+            String::from("CIK0001045810"),
+            String::from("CIK0001652044"),
+            String::from("CIK0001326801"),
+            String::from("CIK0001318605"),
+            String::from("CIK0000320193"),
+        ];
+        for i in 0..tickers.len() {
+            let cik = SecClient::ticker_to_cik(&tickers[i])
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                ciks[i], cik,
+                "Failed: cik {} and ticker {} dont match",
+                ciks[i], tickers[i]
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_fetch_data() {
+        let tickers = [
+            String::from("COIN"),
+            String::from("AAPL"),
+            String::from("META"),
+        ];
+        for ticker in tickers {
+            let sec_client = SecClient::new(ticker);
+            let data = sec_client.fetch_data().await;
+            assert!(data.is_ok());
+        }
     }
 }

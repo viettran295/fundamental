@@ -7,13 +7,13 @@ use redis::{aio::MultiplexedConnection, AsyncCommands, RedisResult};
 use crate::db::{DataManager, DataManagerError};
 
 pub struct DragonFlyCache {
-    client_: redis::Client,
     connection_: MultiplexedConnection,
+    timeout_seconds: i64,
 }
 
 #[async_trait]
 impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
-    async fn init(uri: String) -> Result<Self, DataManagerError> {
+    async fn init(uri: String, timeout_seconds: i64) -> Result<Self, DataManagerError> {
         let client = match redis::Client::open(uri) {
             Ok(client) => client,
             Err(_) => {
@@ -30,17 +30,27 @@ impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
             })
             .unwrap();
         Ok(Self {
-            client_: client,
             connection_: connection,
+            timeout_seconds: timeout_seconds,
         })
     }
 
     async fn set(&mut self, key: String, value: HashMap<String, f64>) {
-        let fields: Vec<(String, f64)> = value.into_iter().map(|(k, v)| (k, v)).collect();
+        let fields: Vec<(String, f64)> = value.into_iter().collect();
         let result: RedisResult<()> =
             AsyncCommands::hset_multiple(&mut self.connection_, &key, &fields).await;
         match result {
-            Ok(_) => {}
+            Ok(_) => {
+                if let Err(e) = AsyncCommands::expire::<String, bool>(
+                    &mut self.connection_,
+                    key.clone(),
+                    self.timeout_seconds,
+                )
+                .await
+                {
+                    warn!("Error setting timeout for {:?}: {}", key, e);
+                }
+            }
             Err(e) => {
                 warn!("Error setting key: {:?} in Dragonfly Db - {}", key, e);
             }
@@ -51,5 +61,22 @@ impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
         AsyncCommands::hgetall(&mut self.connection_, &key)
             .await
             .map_err(|_| DataManagerError::NotFound)
+    }
+
+    async fn is_empty(&mut self) -> Result<bool, DataManagerError> {
+        let db_size: usize = match redis::cmd("DBSIZE")
+            .query_async(&mut self.connection_)
+            .await
+        {
+            Err(e) => {
+                return Err(DataManagerError::General(format!(
+                    "Error check db size: {}",
+                    e
+                )));
+            }
+            Ok(size) => size,
+        };
+        // If size is 0, the DB is empty
+        Ok(db_size == 0)
     }
 }

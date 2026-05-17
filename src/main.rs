@@ -13,10 +13,7 @@ use dotenvy::dotenv;
 use log::{error, warn};
 use tokio::sync::Mutex;
 
-use crate::{
-    financial_stmt::sec_client::{ConfiguredHttpClient, SecClient},
-    jobs::*,
-};
+use crate::{financial_stmt::sec_client::SecClient, jobs::*};
 
 #[tokio::main]
 async fn main() {
@@ -27,8 +24,7 @@ async fn main() {
         Err(e) => warn!("Error loading file .env: {}", e),
     }
 
-    let conf_client = ConfiguredHttpClient::new().unwrap_or_default();
-    let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""), conf_client)));
+    let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""))));
 
     let app = Router::new()
         .route("/{ticker}/{period}/ratios", get(ratios_requests_handler))

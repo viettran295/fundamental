@@ -22,16 +22,6 @@ pub trait HttpClient<T> {
         }
     }
 
-    fn fetch_xml(url: String) -> impl Future<Output = Result<String, Self::Error>> + Send {
-        async {
-            let client = Self::create_client()?;
-            debug!("Fetching xml data {}", url);
-            let response = client.get(url).send().await?.error_for_status()?;
-            let xml_data = response.text().await?;
-            Ok(xml_data)
-        }
-    }
-
     fn create_client() -> Result<Client, Self::Error> {
         reqwest::Client::builder()
             .user_agent("(contact@example.com)")

@@ -11,7 +11,7 @@ pub struct Ratios {
     pub debt_ratio: f64,
     pub debt_to_equity_ratio: f64,
     pub gross_profit_margin: f64,
-    pub operation_grofit_margin: f64,
+    pub operating_grofit_margin: f64,
     pub net_grofit_margin: f64,
 }
 
@@ -24,7 +24,7 @@ impl Default for Ratios {
             debt_ratio: 0.0,
             debt_to_equity_ratio: 0.0,
             gross_profit_margin: 0.0,
-            operation_grofit_margin: 0.0,
+            operating_grofit_margin: 0.0,
             net_grofit_margin: 0.0,
         }
     }
@@ -41,7 +41,7 @@ impl Ratios {
             self.current_ratio = 0.0;
             return;
         }
-        self.current_ratio = utils::round(current_assets / current_liabilities, 2);
+        self.current_ratio = utils::round(current_assets / current_liabilities, 2).abs();
     }
 
     /// # Liquidity ratio
@@ -52,7 +52,8 @@ impl Ratios {
             self.quick_ratio = 0.0;
             return;
         }
-        self.quick_ratio = utils::round((current_assets - inventory) / current_liabilities, 2);
+        self.quick_ratio =
+            utils::round((current_assets - inventory) / current_liabilities, 2).abs();
     }
 
     /// # Solvency ratio
@@ -65,7 +66,7 @@ impl Ratios {
             self.equity_ratio = 0.0;
             return;
         }
-        self.equity_ratio = utils::round(total_equity / total_asset, 2);
+        self.equity_ratio = utils::round(total_equity / total_asset, 2).abs();
     }
 
     /// # Solvency ratio
@@ -76,7 +77,7 @@ impl Ratios {
             self.debt_ratio = 0.0;
             return;
         }
-        self.debt_ratio = utils::round(total_liabilities / total_asset, 2);
+        self.debt_ratio = utils::round(total_liabilities / total_asset, 2).abs();
     }
 
     /// # Solvency ratio
@@ -88,7 +89,7 @@ impl Ratios {
             self.debt_to_equity_ratio = 0.0;
             return;
         }
-        self.debt_to_equity_ratio = utils::round(total_liabilities / total_equity, 2);
+        self.debt_to_equity_ratio = utils::round(total_liabilities / total_equity, 2).abs();
     }
 
     /// # Profitability ratio
@@ -99,7 +100,7 @@ impl Ratios {
             self.gross_profit_margin = 0.0;
             return;
         }
-        self.gross_profit_margin = utils::round(gross_income / total_revenue, 2);
+        self.gross_profit_margin = utils::round(gross_income / total_revenue, 2).abs();
     }
 
     /// # Profitability ratio
@@ -107,10 +108,10 @@ impl Ratios {
     pub fn operating_profit_margin(&mut self, operating_income: f64, total_revenue: f64) {
         if total_revenue == 0.0 {
             warn!("Error calculating operating profit margin: total revenue is 0");
-            self.operation_grofit_margin = 0.0;
+            self.operating_grofit_margin = 0.0;
             return;
         }
-        self.operation_grofit_margin = utils::round(operating_income / total_revenue, 2);
+        self.operating_grofit_margin = utils::round(operating_income / total_revenue, 2).abs();
     }
 
     /// # Profitability ratio
@@ -121,7 +122,7 @@ impl Ratios {
             self.net_grofit_margin = 0.0;
             return;
         }
-        self.net_grofit_margin = utils::round(net_income / total_revenue, 2);
+        self.net_grofit_margin = utils::round(net_income / total_revenue, 2).abs();
     }
 }
 

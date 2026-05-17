@@ -8,14 +8,10 @@ use axum::{
 use tokio::sync::Mutex;
 use tower::ServiceExt;
 
-use fundamental::{
-    financial_stmt::sec_client::{ConfiguredHttpClient, SecClient},
-    jobs::requests_handler,
-};
+use fundamental::{financial_stmt::sec_client::SecClient, jobs::requests_handler};
 
 fn build_app() -> Router {
-    let conf_client = ConfiguredHttpClient::new().unwrap_or_default();
-    let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""), conf_client)));
+    let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""))));
 
     Router::new()
         .route("/{ticker}/{period}", axum::routing::get(requests_handler))

@@ -169,7 +169,10 @@ pub async fn init_all_jobs() {
         let uri = env::var("CACHE_DB_URI")
             .unwrap_or("redis://127.0.0.1:6379".to_string())
             .to_string();
-        let mut db = match DragonFlyCache::init(uri).await {
+        // Timeout for cache db in seconds.
+        // New data is fetched every 24 hours -> Calculate industry average, cache timeout for industry average is 24 hours.
+        let timeout_seconds: i64 = 60 * 60 * 24;
+        let mut db = match DragonFlyCache::init(uri, timeout_seconds).await {
             Ok(db) => db,
             Err(e) => {
                 warn!("Error connecting cache Db: {:?}", e);
@@ -179,7 +182,10 @@ pub async fn init_all_jobs() {
         loop {
             // Wait for new data
             n2.notified().await;
-            job_calculate_industry_ratio_average(&mut proc, &mut db).await;
+            if db.is_empty().await.ok().unwrap_or(false) {
+                debug!("Cache db is empty");
+                job_calculate_industry_ratio_average(&mut proc, &mut db).await;
+            }
         }
     });
 }
@@ -200,6 +206,8 @@ async fn job_fetch_all_market_data(
             debug!("Local data storage is empty");
             run_fetch_data(data_fetcher).await;
             notifier.notify_one();
+        } else {
+            notifier.notify_one();
         }
     }
     for datetime in schedule.upcoming(Utc) {
@@ -213,12 +221,16 @@ async fn job_fetch_all_market_data(
         } else {
             continue;
         }
+        if let Err(e) = fs::remove_dir(common::LOCAL_DATA_STORAGE).await {
+            error!("Error cleaning up local data: {}", e);
+        }
         run_fetch_data(data_fetcher).await;
         notifier.notify_one();
     }
 }
 
-async fn run_fetch_data(data_fetcher: &impl HttpClient<serde_json::Value>) {
+// Use as public function in crate for unit tests
+pub(crate) async fn run_fetch_data(data_fetcher: &impl HttpClient<serde_json::Value>) {
     let zip_files = vec![common::MARKET_DATA_ZIP, common::MARKET_META_DATA_ZIP];
     debug!("Starting job: fetch_all_market_data");
     if let Err(e) = data_fetcher.fetch_data().await {
@@ -255,10 +267,7 @@ async fn job_calculate_industry_ratio_average(
     db: &mut impl DataManager<String, HashMap<String, f64>>,
 ) {
     debug!("Starting job: calculate_industry_ratio_average");
-    if let Err(e) = proc.map_sic_to_cik().await {
-        warn!("Error mapping SIC to CIK: {}", e);
-    }
-    if let Err(e) = proc.calculate_bs_ratios_industry_average().await {
+    if let Err(e) = proc.calculate_industry_average_of_finacial_ratios().await {
         warn!("Error calculating ratios industry average: {}", e);
     }
     for (sic, fields) in proc.map_ratios_industry_average.clone() {
