@@ -1,11 +1,22 @@
 pub mod utils;
 
 use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, sync::Arc};
+use tokio::sync::Mutex;
+
+use crate::{db::DataManager, financial_stmt::sec_client::SecClient, processor::Processor};
 
 pub const LOCAL_DATA_STORAGE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/data");
 pub const MARKET_DATA_ZIP: &str = "market_data.zip";
 pub const MARKET_META_DATA_ZIP: &str = "market_meta_data.zip";
 pub const MARKET_META_DATA_JSON: &str = "market_meta_data.json";
+
+#[derive(Clone)]
+pub struct AppState {
+    pub sec_client: Arc<Mutex<SecClient>>,
+    pub proc: Arc<Mutex<Processor>>,
+    pub db: Arc<Mutex<dyn DataManager<String, HashMap<String, f64>> + Send + Sync>>,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
