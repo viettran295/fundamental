@@ -73,4 +73,8 @@ async fn test_cache_db() {
         "Faile: test key {} should be empty after timeout",
         key
     );
+    assert!(
+        db.is_empty().await.unwrap(),
+        "Failed: Cache db should be empty"
+    );
 }

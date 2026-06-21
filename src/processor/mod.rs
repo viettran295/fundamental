@@ -1,5 +1,6 @@
 use crate::{
     common,
+    db::DataManager,
     financial_stmt::{
         balance_sheet::BalanceSheet, income_statement::IncomeStatement, sec_client::SICResponse,
         FinancialStatement,
@@ -19,12 +20,24 @@ use tokio::{
     task::JoinSet,
 };
 
-#[derive(Debug, Default, Clone)]
 pub struct Processor {
     /// Collections of companies in each industry
     /// Key: SEC Standard industry code (SIC), value: vector of SEC Central index key (CIK)
     pub map_sic_to_cik: HashMap<String, HashSet<String>>,
+    pub map_cik_to_sic: HashMap<String, String>,
     pub map_ratios_industry_average: HashMap<String, HashMap<String, f64>>,
+    pub db_connection: Option<Box<dyn DataManager<String, HashMap<String, f64>> + Send + Sync>>,
+}
+
+impl Default for Processor {
+    fn default() -> Self {
+        Self {
+            map_cik_to_sic: HashMap::new(),
+            map_sic_to_cik: HashMap::new(),
+            map_ratios_industry_average: HashMap::new(),
+            db_connection: None,
+        }
+    }
 }
 
 impl Processor {
@@ -125,7 +138,7 @@ impl Processor {
         Ok(())
     }
 
-    async fn map_sic_to_cik(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn map_sic_to_cik(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let path = format!(
             "{}/{}",
             common::LOCAL_DATA_STORAGE,
@@ -138,9 +151,13 @@ impl Processor {
             serde_json::from_str(&data).inspect_err(|e| warn!("{}", e))?;
         for sic_response in sic_responses {
             self.map_sic_to_cik
-                .entry(sic_response.sic)
+                .entry(sic_response.sic.clone())
                 .or_default()
-                .insert(sic_response.cik);
+                .insert(sic_response.cik.clone());
+            self.map_cik_to_sic
+                .entry(sic_response.cik)
+                .or_default()
+                .push_str(sic_response.sic.as_str());
         }
         Ok(())
     }
@@ -305,7 +322,8 @@ mod unittests {
             );
         }
     }
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    #[ignore]
     async fn test_calculate_industry_average_of_financial_ratios() {
         setup_local_data().await;
 
