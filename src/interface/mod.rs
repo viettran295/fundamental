@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 pub trait HttpClient<T> {
     type Error: std::error::Error + Send + Sync + 'static + From<reqwest::Error>;
 
-    fn fetch_data(&self) -> impl Future<Output = Result<T, Self::Error>> + Send;
+    fn fetch_data(&mut self) -> impl Future<Output = Result<T, Self::Error>> + Send;
 
     /// Fetch and convert json data to rust object
     fn fetch_json<RustObj: DeserializeOwned>(

@@ -111,8 +111,11 @@ pub async fn decompress_and_filter_sic(file_path: &str) -> io::Result<()> {
 }
 
 /// Load all market company data locally in data/all_market_data
-pub async fn load_company_data(ticker: &String) -> Result<Value, Box<dyn Error + Send + Sync>> {
-    let cik = match SecClient::ticker_to_cik(ticker).await {
+pub async fn load_company_data(
+    sec_client: &mut SecClient,
+    ticker: &String,
+) -> Result<Value, Box<dyn Error + Send + Sync>> {
+    let cik = match sec_client.ticker_to_cik(ticker).await {
         Ok(res) => res,
         Err(e) => {
             warn!("Error converting ticker to CIK: {}", ticker);

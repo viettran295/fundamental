@@ -186,7 +186,7 @@ impl Processor {
 impl HttpClient<serde_json::Value> for Processor {
     type Error = reqwest::Error;
     // Get all companies data from SEC
-    async fn fetch_data(&self) -> Result<serde_json::Value, Self::Error> {
+    async fn fetch_data(&mut self) -> Result<serde_json::Value, Self::Error> {
         let client = Self::create_client()?;
         let url_local_file_map: HashMap<&str, &str> = HashMap::from([
             (Self::MARKET_DATA_URL, common::MARKET_DATA_ZIP),
@@ -230,7 +230,7 @@ impl HttpClient<serde_json::Value> for Processor {
 
 impl HttpClient<serde_json::Value> for Arc<Mutex<Processor>> {
     type Error = reqwest::Error;
-    async fn fetch_data(&self) -> Result<serde_json::Value, Self::Error> {
+    async fn fetch_data(&mut self) -> Result<serde_json::Value, Self::Error> {
         self.lock().await.fetch_data().await
     }
 }
@@ -253,9 +253,9 @@ mod unittests {
                 fs::create_dir_all(common::LOCAL_DATA_STORAGE)
                     .await
                     .expect("Error creating local data storage");
-                let proc = Processor::default();
+                let mut proc = Processor::default();
                 if utils::is_dir_empty(common::LOCAL_DATA_STORAGE).unwrap() {
-                    jobs::run_fetch_data(&proc).await;
+                    jobs::run_fetch_data(&mut proc).await;
                 }
             })
             .await;

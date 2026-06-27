@@ -32,6 +32,7 @@ struct SecResponse {
 #[derive(Debug, Default)]
 pub struct SecClient {
     ticker: String,
+    company_tickers: Vec<CompanyTickersExchange>,
 }
 
 impl SecClient {
@@ -41,7 +42,10 @@ impl SecClient {
     const COMPANY_FACTS_BASE_URL: &str = "https://data.sec.gov/api/xbrl/companyfacts";
 
     pub fn new(ticker: String) -> Self {
-        Self { ticker }
+        Self {
+            ticker,
+            company_tickers: Vec::new(),
+        }
     }
 
     pub fn set_ticker(&mut self, ticker: String) {
@@ -49,18 +53,22 @@ impl SecClient {
     }
 
     pub async fn ticker_to_cik(
+        &mut self,
         ticker: &String,
     ) -> Result<Option<String>, Box<dyn std::error::Error>> {
-        let sec_response: SecResponse =
-            Self::fetch_json(Self::TICKER_LOOKUP_URL.to_string()).await?;
-        let company_tickers: Vec<CompanyTickersExchange> = sec_response.data;
-        for company_ticker in company_tickers {
-            if company_ticker.ticker.unwrap_or(String::from("")) == *ticker {
-                return Ok(Some(Self::add_cik_padding(company_ticker.cik)));
-            }
+        if self.company_tickers.is_empty() {
+            let sec_response: SecResponse =
+                Self::fetch_json(Self::TICKER_LOOKUP_URL.to_string()).await?;
+            self.company_tickers = sec_response.data;
         }
-        Ok(None)
+        let cik = self
+            .company_tickers
+            .iter()
+            .find(|company| company.ticker.as_deref().unwrap_or("") == *ticker)
+            .map(|company| Self::add_cik_padding(company.cik));
+        Ok(cik)
     }
+
     fn add_cik_padding(cik: u32) -> String {
         let mut nr_digits = cik.to_string().len();
         let mut padding_digits: String = String::from("");
@@ -77,11 +85,14 @@ impl SecClient {
 impl HttpClient<serde_json::Value> for SecClient {
     type Error = reqwest::Error;
 
-    async fn fetch_data(&self) -> Result<Value, Self::Error> {
-        let cik = Self::ticker_to_cik(&self.ticker).await.unwrap_or_else(|e| {
-            warn!("Error getting CIK: {}", e);
-            None
-        });
+    async fn fetch_data(&mut self) -> Result<Value, Self::Error> {
+        let cik = self
+            .ticker_to_cik(&self.ticker.clone())
+            .await
+            .unwrap_or_else(|e| {
+                warn!("Error getting CIK: {}", e);
+                None
+            });
         let url = format!(
             "{}/{}.json",
             Self::COMPANY_FACTS_BASE_URL,
@@ -112,8 +123,10 @@ mod unittests {
             String::from("CIK0001318605"),
             String::from("CIK0000320193"),
         ];
+        let mut sec_client = SecClient::new(String::from(""));
         for i in 0..tickers.len() {
-            let cik = SecClient::ticker_to_cik(&tickers[i])
+            let cik = sec_client
+                .ticker_to_cik(&tickers[i])
                 .await
                 .unwrap()
                 .unwrap();
@@ -133,7 +146,7 @@ mod unittests {
             String::from("META"),
         ];
         for ticker in tickers {
-            let sec_client = SecClient::new(ticker);
+            let mut sec_client = SecClient::new(ticker);
             let data = sec_client.fetch_data().await;
             assert!(data.is_ok());
         }
