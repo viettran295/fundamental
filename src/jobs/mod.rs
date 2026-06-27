@@ -22,7 +22,6 @@ use crate::ratios::Ratios;
 use crate::{
     financial_stmt::{
         balance_sheet::BalanceSheet, cash_flow::CashFlow, income_statement::IncomeStatement,
-        sec_client::SecClient,
     },
     interface::HttpClient,
 };
@@ -31,14 +30,14 @@ pub async fn requests_handler(
     State(app_state): State<AppState>,
     Path((ticker, period)): Path<(String, FormReport)>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let json: Value = match utils::load_company_data(&ticker).await {
+    let mut lock_client = app_state.sec_client.lock().await;
+    let json: Value = match utils::load_company_data(&mut lock_client, &ticker).await {
         Ok(data) => data,
         Err(e) => {
             warn!(
                 "Could not load data locally -> fetching data directly from SEC - {}",
                 e
             );
-            let mut lock_client = app_state.sec_client.lock().await;
             lock_client.set_ticker(ticker.clone());
             lock_client.fetch_data().await.map_err(|e| {
                 (
@@ -89,26 +88,29 @@ pub async fn average_ratios_requests_handler(
     State(app_state): State<AppState>,
     Path(ticker): Path<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let cik = SecClient::ticker_to_cik(&ticker).await.unwrap().unwrap();
-    let trimmed_cik = cik.trim_start_matches("CIK");
     {
         let mut db_lock = app_state.db.lock().await;
         if db_lock.is_empty().await.unwrap_or(true) {
-            // fixed logic
             return Err((
                 StatusCode::NOT_FOUND,
                 "Error fetching industry average ratios".to_string(),
             ));
         }
     }
+    let cik: String = {
+        let mut lock_client = app_state.sec_client.lock().await;
+        lock_client
+            .ticker_to_cik(&ticker)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .ok_or_else(|| (StatusCode::NOT_FOUND, format!("CIK not found {}", ticker)))?
+            .trim_start_matches("CIK")
+            .to_string()
+    };
     let sic = {
         let mut proc_lock = app_state.proc.lock().await;
         proc_lock.map_sic_to_cik().await.unwrap();
-        proc_lock
-            .map_cik_to_sic
-            .get(trimmed_cik)
-            .unwrap()
-            .to_string()
+        proc_lock.map_cik_to_sic.get(&cik).unwrap().to_string()
     };
     let mut db_lock = app_state.db.lock().await;
     let ratios = db_lock.get(sic).await.map_err(|e| {
@@ -137,7 +139,7 @@ pub async fn init_all_jobs(
     let n1 = notifier.clone();
     let n2 = notifier.clone();
 
-    let proc1 = proc.clone();
+    let mut proc1 = proc.clone();
     let proc2 = proc.clone();
     // Job: calculate industry ratio average
     tokio::spawn(async move {
@@ -156,12 +158,12 @@ pub async fn init_all_jobs(
     });
     // Job: fetch market data
     tokio::spawn(async move {
-        job_fetch_all_market_data(&proc1, n1).await;
+        job_fetch_all_market_data(&mut proc1, n1).await;
     });
 }
 
 async fn job_fetch_all_market_data(
-    data_fetcher: &impl HttpClient<serde_json::Value>,
+    data_fetcher: &mut impl HttpClient<serde_json::Value>,
     notifier: Arc<Notify>,
 ) {
     // SEC update bulk zip file nightly at 3:00 a.p ET.
@@ -175,7 +177,7 @@ async fn job_fetch_all_market_data(
         if is_empty {
             // let data_fetcher_lock = data_fetcher.lock().await;
             debug!("Local data storage is empty");
-            run_fetch_data(&*data_fetcher).await;
+            run_fetch_data(data_fetcher).await;
             notifier.notify_one();
         }
     }
@@ -193,13 +195,13 @@ async fn job_fetch_all_market_data(
             error!("Error cleaning up local data: {}", e);
         }
         // let data_fetcher_lock = data_fetcher.lock().await;
-        run_fetch_data(&*data_fetcher).await;
+        run_fetch_data(data_fetcher).await;
         notifier.notify_one();
     }
 }
 
 // Use as public function in crate for unit tests
-pub(crate) async fn run_fetch_data(data_fetcher: &impl HttpClient<serde_json::Value>) {
+pub(crate) async fn run_fetch_data(data_fetcher: &mut impl HttpClient<serde_json::Value>) {
     let zip_files = vec![common::MARKET_DATA_ZIP, common::MARKET_META_DATA_ZIP];
     debug!("Starting job: fetch_all_market_data");
     if let Err(e) = data_fetcher.fetch_data().await {
