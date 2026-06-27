@@ -13,24 +13,43 @@ use dotenvy::dotenv;
 use log::{error, warn};
 use tokio::sync::Mutex;
 
+use crate::common::AppState;
+use crate::db::{dragonfly_cache::DragonFlyCache, DataManager};
+use crate::processor::Processor;
 use crate::{financial_stmt::sec_client::SecClient, jobs::*};
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    init_all_jobs().await;
+    let uri = env::var("CACHE_DB_URI")
+        .unwrap_or("redis://127.0.0.1:6379".to_string())
+        .to_string();
+    // Timeout for cache db in seconds.
+    // New data is fetched every 24 hours -> Calculate industry average, cache timeout for industry average is 24 hours.
+    let timeout_seconds: i64 = 60 * 60 * 24;
+    let proc = Arc::new(Mutex::new(Processor::default()));
+    let shared_db = DragonFlyCache::init(uri, timeout_seconds)
+        .await
+        .ok()
+        .map(|db| Arc::new(Mutex::new(db)))
+        .unwrap();
+    init_all_jobs(proc.clone(), shared_db.clone()).await;
+
     match dotenv() {
         Ok(_) => {}
         Err(e) => warn!("Error loading file .env: {}", e),
     }
-
     let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""))));
-
+    let app_state = AppState {
+        sec_client: sec_client,
+        proc: proc,
+        db: shared_db,
+    };
     let app = Router::new()
-        .route("/{ticker}/{period}/ratios", get(ratios_requests_handler))
+        .route("/{ticker}/ratios", get(average_ratios_requests_handler))
         // Request latest finacial statement of company with period: quarly or yearly
         .route("/{ticker}/{period}", get(requests_handler))
-        .with_state(sec_client);
+        .with_state(app_state);
 
     let listener = match tokio::net::TcpListener::bind("0.0.0.0:3000").await {
         Ok(listener) => listener,

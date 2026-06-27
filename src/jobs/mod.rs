@@ -1,12 +1,11 @@
 use std::collections::HashMap;
-use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::{debug_handler, Json};
+use axum::Json;
 use chrono::Utc;
 use cron::Schedule;
 use log::{debug, error, warn};
@@ -15,8 +14,8 @@ use tokio::sync::{Mutex, Notify};
 use tokio::{fs, time};
 
 use crate::common::utils::is_dir_empty;
-use crate::common::{self, utils, FormReport};
-use crate::db::{dragonfly_cache::DragonFlyCache, DataManager};
+use crate::common::{self, utils, AppState, FormReport};
+use crate::db::DataManager;
 use crate::financial_stmt::{FinancialReport, FinancialReportHistory};
 use crate::processor::Processor;
 use crate::ratios::Ratios;
@@ -28,9 +27,8 @@ use crate::{
     interface::HttpClient,
 };
 
-#[debug_handler]
 pub async fn requests_handler(
-    State(sec_client): State<Arc<Mutex<SecClient>>>,
+    State(app_state): State<AppState>,
     Path((ticker, period)): Path<(String, FormReport)>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let json: Value = match utils::load_company_data(&ticker).await {
@@ -40,7 +38,7 @@ pub async fn requests_handler(
                 "Could not load data locally -> fetching data directly from SEC - {}",
                 e
             );
-            let mut lock_client = sec_client.lock().await;
+            let mut lock_client = app_state.sec_client.lock().await;
             lock_client.set_ticker(ticker.clone());
             lock_client.fetch_data().await.map_err(|e| {
                 (
@@ -87,106 +85,78 @@ pub async fn requests_handler(
     }
 }
 
-pub async fn ratios_requests_handler(
-    State(sec_client): State<Arc<Mutex<SecClient>>>,
-    Path((ticker, period)): Path<(String, FormReport)>,
+pub async fn average_ratios_requests_handler(
+    State(app_state): State<AppState>,
+    Path(ticker): Path<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let json: Value = match utils::load_company_data(&ticker).await {
-        Ok(data) => data,
-        Err(e) => {
-            warn!(
-                "Could not load data locally -> fetching data directly from SEC - {}",
-                e
-            );
-            let mut lock_client = sec_client.lock().await;
-            lock_client.set_ticker(ticker.clone());
-            lock_client.fetch_data().await.map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Error fetch data for {}: {}", ticker, e),
-                )
-            })?
+    let cik = SecClient::ticker_to_cik(&ticker).await.unwrap().unwrap();
+    let trimmed_cik = cik.trim_start_matches("CIK");
+    {
+        let mut db_lock = app_state.db.lock().await;
+        if db_lock.is_empty().await.unwrap_or(true) {
+            // fixed logic
+            return Err((
+                StatusCode::NOT_FOUND,
+                "Error fetching industry average ratios".to_string(),
+            ));
         }
+    }
+    let sic = {
+        let mut proc_lock = app_state.proc.lock().await;
+        proc_lock.map_sic_to_cik().await.unwrap();
+        proc_lock
+            .map_cik_to_sic
+            .get(trimmed_cik)
+            .unwrap()
+            .to_string()
     };
-    let mut income_stmt = IncomeStatement::default();
-    let mut balance_sheet = BalanceSheet::default();
-    let mut cash_flow = CashFlow::default();
-    utils::fill_financial_stmt_data(
-        &mut income_stmt,
-        &mut balance_sheet,
-        &mut cash_flow,
-        &period,
-        &json,
-    )?;
-    let mut ratios = Ratios::default();
-    ratios.current_ratio(
-        balance_sheet.current_assets as f64,
-        balance_sheet.current_liabilities as f64,
-    );
-    ratios.quick_ratio(
-        balance_sheet.current_assets as f64,
-        balance_sheet.current_liabilities as f64,
-        balance_sheet.inventory as f64,
-    );
-    ratios.equity_ratio(
-        balance_sheet.total_equity as f64,
-        balance_sheet.total_assets as f64,
-    );
-    ratios.debt_ratio(
-        balance_sheet.total_liabilities as f64,
-        balance_sheet.total_assets as f64,
-    );
-    ratios.debt_to_equity_ratio(
-        balance_sheet.total_liabilities as f64,
-        balance_sheet.total_equity as f64,
-    );
-    ratios.gross_profit_margin(
-        income_stmt.gross_profit as f64,
-        income_stmt.total_revenue as f64,
-    );
-    ratios.operating_profit_margin(
-        income_stmt.operating_income as f64,
-        income_stmt.total_revenue as f64,
-    );
-    ratios.net_profit_margin(
-        income_stmt.net_income as f64,
-        income_stmt.total_revenue as f64,
-    );
-
-    Ok(Json(json!(ratios)))
+    let mut db_lock = app_state.db.lock().await;
+    let ratios = db_lock.get(sic).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Error getting average ratios: {} - {:?}", ticker, e),
+        )
+    })?;
+    return Ok(Json(json!(Ratios::new(
+        *ratios.get("current_ratio").unwrap_or(&0.0),
+        *ratios.get("quick_ratio").unwrap_or(&0.0),
+        *ratios.get("equity_ratio").unwrap_or(&0.0),
+        *ratios.get("debt_ratio").unwrap_or(&0.0),
+        *ratios.get("debt_to_equity_ratio").unwrap_or(&0.0),
+        *ratios.get("gross_profit_margin").unwrap_or(&0.0),
+        *ratios.get("operating_profit_margin").unwrap_or(&0.0),
+        *ratios.get("net_profit_margin").unwrap_or(&0.0)
+    ))));
 }
 
-pub async fn init_all_jobs() {
+pub async fn init_all_jobs(
+    proc: Arc<Mutex<Processor>>,
+    db: Arc<Mutex<dyn DataManager<String, HashMap<String, f64>> + Send + Sync>>,
+) {
     let notifier = Arc::new(Notify::new());
     let n1 = notifier.clone();
     let n2 = notifier.clone();
-    tokio::spawn(async {
-        let proc = Processor::default();
-        job_fetch_all_market_data(&proc, n1).await;
-    });
+
+    let proc1 = proc.clone();
+    let proc2 = proc.clone();
+    // Job: calculate industry ratio average
     tokio::spawn(async move {
-        let mut proc = Processor::default();
-        let uri = env::var("CACHE_DB_URI")
-            .unwrap_or("redis://127.0.0.1:6379".to_string())
-            .to_string();
-        // Timeout for cache db in seconds.
-        // New data is fetched every 24 hours -> Calculate industry average, cache timeout for industry average is 24 hours.
-        let timeout_seconds: i64 = 60 * 60 * 24;
-        let mut db = match DragonFlyCache::init(uri, timeout_seconds).await {
-            Ok(db) => db,
-            Err(e) => {
-                warn!("Error connecting cache Db: {:?}", e);
-                return;
-            }
-        };
         loop {
             // Wait for new data
             n2.notified().await;
-            if db.is_empty().await.ok().unwrap_or(false) {
+            let mut db_lock = db.lock().await;
+            let mut proc_lock = proc2.lock().await;
+            if db_lock.is_empty().await.ok().unwrap_or(false) {
                 debug!("Cache db is empty");
-                job_calculate_industry_ratio_average(&mut proc, &mut db).await;
+                job_calculate_industry_ratio_average(&mut proc_lock, &mut *db_lock).await;
             }
+            drop(db_lock);
+            drop(proc_lock);
         }
+    });
+    // Job: fetch market data
+    tokio::spawn(async move {
+        job_fetch_all_market_data(&proc1, n1).await;
     });
 }
 
@@ -203,10 +173,9 @@ async fn job_fetch_all_market_data(
     }
     if let Ok(is_empty) = is_dir_empty(common::LOCAL_DATA_STORAGE) {
         if is_empty {
+            // let data_fetcher_lock = data_fetcher.lock().await;
             debug!("Local data storage is empty");
-            run_fetch_data(data_fetcher).await;
-            notifier.notify_one();
-        } else {
+            run_fetch_data(&*data_fetcher).await;
             notifier.notify_one();
         }
     }
@@ -217,14 +186,14 @@ async fn job_fetch_all_market_data(
                 "Next job fetch_all_market_data is scheduled for: {}",
                 datetime
             );
+            notifier.notify_one();
             time::sleep(wait).await;
-        } else {
-            continue;
         }
         if let Err(e) = fs::remove_dir(common::LOCAL_DATA_STORAGE).await {
             error!("Error cleaning up local data: {}", e);
         }
-        run_fetch_data(data_fetcher).await;
+        // let data_fetcher_lock = data_fetcher.lock().await;
+        run_fetch_data(&*data_fetcher).await;
         notifier.notify_one();
     }
 }
@@ -264,12 +233,13 @@ pub(crate) async fn run_fetch_data(data_fetcher: &impl HttpClient<serde_json::Va
 
 async fn job_calculate_industry_ratio_average(
     proc: &mut Processor,
-    db: &mut impl DataManager<String, HashMap<String, f64>>,
+    db: &mut (impl DataManager<String, HashMap<String, f64>> + ?Sized),
 ) {
     debug!("Starting job: calculate_industry_ratio_average");
     if let Err(e) = proc.calculate_industry_average_of_finacial_ratios().await {
         warn!("Error calculating ratios industry average: {}", e);
     }
+    // Key: SIC, value: ratio - value
     for (sic, fields) in proc.map_ratios_industry_average.clone() {
         db.set(sic, fields).await;
     }

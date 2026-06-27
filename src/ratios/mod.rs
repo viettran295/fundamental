@@ -31,6 +31,27 @@ impl Default for Ratios {
 }
 
 impl Ratios {
+    pub fn new(
+        current_ratio: f64,
+        quick_ratio: f64,
+        equity_ratio: f64,
+        debt_ratio: f64,
+        debt_to_equity_ratio: f64,
+        gross_profit_margin: f64,
+        operating_grofit_margin: f64,
+        net_grofit_margin: f64,
+    ) -> Self {
+        Self {
+            current_ratio,
+            quick_ratio,
+            equity_ratio,
+            debt_ratio,
+            debt_to_equity_ratio,
+            gross_profit_margin,
+            operating_grofit_margin,
+            net_grofit_margin,
+        }
+    }
     /// # Liquidity ratio
     /// Current ratio is a short-term liquidity.
     /// It measures a companay's ability to pay short-term obligations.
