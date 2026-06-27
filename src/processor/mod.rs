@@ -1,6 +1,5 @@
 use crate::{
     common,
-    db::DataManager,
     financial_stmt::{
         balance_sheet::BalanceSheet, income_statement::IncomeStatement, sec_client::SICResponse,
         FinancialStatement,
@@ -14,9 +13,11 @@ use serde_json::Value;
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
+    sync::Arc,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
+    sync::Mutex,
     task::JoinSet,
 };
 
@@ -26,7 +27,6 @@ pub struct Processor {
     pub map_sic_to_cik: HashMap<String, HashSet<String>>,
     pub map_cik_to_sic: HashMap<String, String>,
     pub map_ratios_industry_average: HashMap<String, HashMap<String, f64>>,
-    pub db_connection: Option<Box<dyn DataManager<String, HashMap<String, f64>> + Send + Sync>>,
 }
 
 impl Default for Processor {
@@ -35,7 +35,6 @@ impl Default for Processor {
             map_cik_to_sic: HashMap::new(),
             map_sic_to_cik: HashMap::new(),
             map_ratios_industry_average: HashMap::new(),
-            db_connection: None,
         }
     }
 }
@@ -229,6 +228,13 @@ impl HttpClient<serde_json::Value> for Processor {
     }
 }
 
+impl HttpClient<serde_json::Value> for Arc<Mutex<Processor>> {
+    type Error = reqwest::Error;
+    async fn fetch_data(&self) -> Result<serde_json::Value, Self::Error> {
+        self.lock().await.fetch_data().await
+    }
+}
+
 // ---- Test ----
 #[cfg(test)]
 mod unittests {
@@ -274,6 +280,12 @@ mod unittests {
         let semiconductor_companies = proc.map_sic_to_cik.get(&semiconductors_sic).unwrap();
         let computer_programming_companies =
             proc.map_sic_to_cik.get(&computer_programming_sic).unwrap();
+
+        let nvidia_sic = proc.map_cik_to_sic.get(&nvidia_cik).unwrap();
+        let goog_sic = proc.map_cik_to_sic.get(&goog_cik).unwrap();
+
+        assert_eq!(*nvidia_sic, semiconductors_sic);
+        assert_eq!(*goog_sic, computer_programming_sic);
 
         assert!(
             semiconductor_companies.contains(&nvidia_cik),
