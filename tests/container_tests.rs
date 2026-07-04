@@ -1,3 +1,6 @@
+mod common;
+use common::*;
+
 use std::{collections::HashMap, time::Duration};
 
 use fundamental::db::{dragonfly_cache::DragonFlyCache, DataManager};
@@ -9,8 +12,6 @@ use testcontainers::{
 
 const TEST_IMG: &str = "viettrann/fundamental";
 const TEST_PORT: u16 = 3000;
-const CACHE_DB_IMG: &str = "docker.dragonflydb.io/dragonflydb/dragonfly";
-const CACHE_DB_PORT: u16 = 6379;
 
 #[tokio::test]
 async fn test_period_reports() {
@@ -43,17 +44,7 @@ async fn test_period_reports() {
 
 #[tokio::test]
 async fn test_cache_db() {
-    let cache_db_container = GenericImage::new(CACHE_DB_IMG, "latest")
-        .with_exposed_port(CACHE_DB_PORT.tcp())
-        .with_wait_for(WaitFor::seconds(5))
-        .start()
-        .await
-        .unwrap();
-    let host = cache_db_container.get_host().await.unwrap();
-    let host_port = cache_db_container
-        .get_host_port_ipv4(CACHE_DB_PORT)
-        .await
-        .unwrap();
+    let (_cache_db_container, host, host_port) = init_cache_db().await;
     let timeout_sec: i64 = 5;
     let mut db = DragonFlyCache::init(format!("redis://{host}:{host_port}"), timeout_sec)
         .await
@@ -78,3 +69,10 @@ async fn test_cache_db() {
         "Failed: Cache db should be empty"
     );
 }
+
+// #[tokio::test]
+// async fn test_avg_ratios_requests_handler() {
+//     let (status, body) = get(build_app().await, "/GOOG/ratios").await;
+//     assert_eq!(status, StatusCode::OK, "response: {:?}", body);
+//     let _json = parse_json(&body);
+// }
