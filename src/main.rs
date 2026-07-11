@@ -20,7 +20,12 @@ use crate::{financial_stmt::sec_client::SecClient, jobs::*};
 
 #[tokio::main]
 async fn main() {
+    match dotenv() {
+        Ok(_) => {}
+        Err(e) => warn!("Error loading file .env: {}", e),
+    }
     env_logger::init();
+
     let uri = env::var("CACHE_DB_URI")
         .unwrap_or("redis://127.0.0.1:6379".to_string())
         .to_string();
@@ -34,17 +39,13 @@ async fn main() {
         .map(|db| Arc::new(Mutex::new(db)))
         .unwrap();
     init_all_jobs(proc.clone(), shared_db.clone()).await;
-
-    match dotenv() {
-        Ok(_) => {}
-        Err(e) => warn!("Error loading file .env: {}", e),
-    }
     let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""))));
     let app_state = AppState {
         sec_client: sec_client,
         proc: proc,
         db: shared_db,
     };
+
     let app = Router::new()
         .route("/{ticker}/ratios", get(average_ratios_requests_handler))
         // Request latest finacial statement of company with period: quarly or yearly
@@ -58,6 +59,7 @@ async fn main() {
             return;
         }
     };
+
     match axum::serve(listener, app).await {
         Ok(_) => {}
         Err(e) => {
