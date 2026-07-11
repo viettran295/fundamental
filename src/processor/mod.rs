@@ -138,6 +138,9 @@ impl Processor {
     }
 
     pub async fn map_sic_to_cik(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if !self.map_cik_to_sic.is_empty() && !self.map_sic_to_cik.is_empty() {
+            return Ok(());
+        }
         let path = format!(
             "{}/{}",
             common::LOCAL_DATA_STORAGE,
@@ -154,9 +157,7 @@ impl Processor {
                 .or_default()
                 .insert(sic_response.cik.clone());
             self.map_cik_to_sic
-                .entry(sic_response.cik)
-                .or_default()
-                .push_str(sic_response.sic.as_str());
+                .insert(sic_response.cik, sic_response.sic);
         }
         Ok(())
     }

@@ -7,7 +7,6 @@ pub enum DataManagerError {
     General(String),
     NotFound,
     ConnectionFailed,
-    SerDerialize,
 }
 
 #[async_trait]
