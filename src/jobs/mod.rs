@@ -109,8 +109,17 @@ pub async fn average_ratios_requests_handler(
     };
     let sic = {
         let mut proc_lock = app_state.proc.lock().await;
-        proc_lock.map_sic_to_cik().await.unwrap();
-        proc_lock.map_cik_to_sic.get(&cik).unwrap().to_string()
+        proc_lock.map_sic_to_cik().await.map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Error average ratios request: {}", e),
+            )
+        })?;
+        proc_lock
+            .map_cik_to_sic
+            .get(&cik)
+            .unwrap_or(&String::from(""))
+            .to_string()
     };
     let ratios = {
         let mut db_lock = app_state.db.lock().await;

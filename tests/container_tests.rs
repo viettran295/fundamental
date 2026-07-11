@@ -79,7 +79,6 @@ async fn test_cache_db() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn test_avg_ratios_requests_handler() {
-    env_logger::init();
     let (_cache_db_container, host, host_port) = init_cache_db().await;
     let timeout_sec: i64 = 60 * 60;
     let db = DragonFlyCache::init(format!("redis://{host}:{host_port}"), timeout_sec)

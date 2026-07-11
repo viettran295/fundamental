@@ -27,8 +27,7 @@ impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
             .map_err(|e| {
                 error!("Error connecting to Dragonfly Db: {}", e);
                 DataManagerError::ConnectionFailed
-            })
-            .unwrap();
+            })?;
         Ok(Self {
             connection_: connection,
             timeout_seconds: timeout_seconds,
@@ -68,11 +67,8 @@ impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
             .query_async(&mut self.connection_)
             .await
         {
-            Err(e) => {
-                return Err(DataManagerError::General(format!(
-                    "Error check db size: {}",
-                    e
-                )));
+            Err(_) => {
+                return Err(DataManagerError::General);
             }
             Ok(size) => size,
         };

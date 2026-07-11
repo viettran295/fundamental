@@ -33,11 +33,14 @@ async fn main() {
     // New data is fetched every 24 hours -> Calculate industry average, cache timeout for industry average is 24 hours.
     let timeout_seconds: i64 = 60 * 60 * 24;
     let proc = Arc::new(Mutex::new(Processor::default()));
-    let shared_db = DragonFlyCache::init(uri, timeout_seconds)
-        .await
-        .ok()
-        .map(|db| Arc::new(Mutex::new(db)))
-        .unwrap();
+    let db = match DragonFlyCache::init(uri.clone(), timeout_seconds).await {
+        Ok(db) => db,
+        Err(e) => {
+            error!("Error init cache db at {}: {:?}", uri, e);
+            return;
+        }
+    };
+    let shared_db = Arc::new(Mutex::new(db));
     init_all_jobs(proc.clone(), shared_db.clone()).await;
     let sec_client = Arc::new(Mutex::new(SecClient::new(String::from(""))));
     let app_state = AppState {
