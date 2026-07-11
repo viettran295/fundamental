@@ -1,9 +1,16 @@
 mod common;
 use common::*;
+use fundamental::common::AppState;
+use fundamental::financial_stmt::sec_client::SecClient;
+use tokio::sync::Mutex;
 
+use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
 
+use axum::{http::StatusCode, Router};
 use fundamental::db::{dragonfly_cache::DragonFlyCache, DataManager};
+use fundamental::jobs;
+use fundamental::processor::Processor;
 use testcontainers::{
     core::{IntoContainerPort, WaitFor},
     runners::AsyncRunner,
@@ -70,9 +77,38 @@ async fn test_cache_db() {
     );
 }
 
-// #[tokio::test]
-// async fn test_avg_ratios_requests_handler() {
-//     let (status, body) = get(build_app().await, "/GOOG/ratios").await;
-//     assert_eq!(status, StatusCode::OK, "response: {:?}", body);
-//     let _json = parse_json(&body);
-// }
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn test_avg_ratios_requests_handler() {
+    env_logger::init();
+    let (_cache_db_container, host, host_port) = init_cache_db().await;
+    let timeout_sec: i64 = 60 * 60;
+    let db = DragonFlyCache::init(format!("redis://{host}:{host_port}"), timeout_sec)
+        .await
+        .unwrap();
+    let shared_db = Arc::new(Mutex::new(db));
+    let proc = Arc::new(Mutex::new(Processor::default()));
+
+    let app_state = AppState {
+        sec_client: Arc::new(Mutex::new(SecClient::new(String::from("")))),
+        proc: proc.clone(),
+        db: shared_db.clone(),
+    };
+    {
+        let mut proc_lock = proc.lock().await;
+        let mut db_lock = shared_db.lock().await;
+        jobs::job_calculate_industry_ratio_average(&mut proc_lock, &mut *db_lock).await;
+    }
+    let app = build_app(Some(app_state)).await;
+    assert_ratios_ok(app.clone(), "/COIN/ratios").await;
+    assert_ratios_ok(app, "/NVDA/ratios").await;
+}
+
+async fn assert_ratios_ok(app: Router, uri: &str) {
+    let (status, body) = get(app, uri).await;
+    assert_eq!(status, StatusCode::OK, "response: {:?}", body);
+    let ratios = parse_json(&body);
+    assert_ne!(ratios["current_ratios"], 0.0);
+    assert_ne!(ratios["quick_ratio"], 0.0);
+    assert_ne!(ratios["debt_ratio"], 0.0);
+    assert_ne!(ratios["equity_ratio"], 0.0);
+}

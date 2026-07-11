@@ -112,13 +112,15 @@ pub async fn average_ratios_requests_handler(
         proc_lock.map_sic_to_cik().await.unwrap();
         proc_lock.map_cik_to_sic.get(&cik).unwrap().to_string()
     };
-    let mut db_lock = app_state.db.lock().await;
-    let ratios = db_lock.get(sic).await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Error getting average ratios: {} - {:?}", ticker, e),
-        )
-    })?;
+    let ratios = {
+        let mut db_lock = app_state.db.lock().await;
+        db_lock.get(sic).await.map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Error getting average ratios: {} - {:?}", ticker, e),
+            )
+        })?
+    };
     return Ok(Json(json!(Ratios::new(
         *ratios.get("current_ratio").unwrap_or(&0.0),
         *ratios.get("quick_ratio").unwrap_or(&0.0),
@@ -233,7 +235,7 @@ pub(crate) async fn run_fetch_data(data_fetcher: &mut impl HttpClient<serde_json
     debug!("Finished job: fetch_all_market_data");
 }
 
-async fn job_calculate_industry_ratio_average(
+pub async fn job_calculate_industry_ratio_average(
     proc: &mut Processor,
     db: &mut (impl DataManager<String, HashMap<String, f64>> + ?Sized),
 ) {
