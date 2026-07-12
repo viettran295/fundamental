@@ -35,7 +35,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - name: Run tests
-        run: cargo test --verbose -- --nocapture  --test-threads=4
+        run: cargo test --verbose -- --nocapture  --test-threads=8
 
   build-arm64:
     needs: tests
@@ -114,7 +114,7 @@ jobs:
               docker run -d \
                         --name $CONTAINER_NAME \
                         --network $NETWORK \
-                        -e CACHE_DB_URI=redis://dragonfly:6379
+                        -e CACHE_DB_URI=redis://dragonfly:6379 \
                         -p 3000:3000 \
                         $ARM64_IMG
             else

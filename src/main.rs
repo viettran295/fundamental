@@ -1,11 +1,3 @@
-mod common;
-mod db;
-mod financial_stmt;
-mod interface;
-mod jobs;
-mod processor;
-mod ratios;
-
 use std::sync::Arc;
 
 use axum::{routing::get, Router};
@@ -13,10 +5,10 @@ use dotenvy::dotenv;
 use log::{error, warn};
 use tokio::sync::Mutex;
 
-use crate::common::AppState;
-use crate::db::{dragonfly_cache::DragonFlyCache, DataManager};
-use crate::processor::Processor;
-use crate::{financial_stmt::sec_client::SecClient, jobs::*};
+use fundamental::common::AppState;
+use fundamental::db::{dragonfly_cache::DragonFlyCache, DataManager};
+use fundamental::processor::Processor;
+use fundamental::{financial_stmt::sec_client::SecClient, jobs::*};
 
 #[tokio::main]
 async fn main() {
