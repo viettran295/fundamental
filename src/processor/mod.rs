@@ -336,7 +336,6 @@ mod unittests {
         }
     }
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    #[ignore]
     async fn test_calculate_industry_average_of_financial_ratios() {
         setup_local_data().await;
 
