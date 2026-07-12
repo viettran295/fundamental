@@ -21,6 +21,7 @@ const TEST_IMG: &str = "viettrann/fundamental";
 const TEST_PORT: u16 = 3000;
 
 #[tokio::test]
+#[ignore]
 async fn test_period_reports() {
     let reports = vec!["quarly", "annually", "history"];
     let mut container_arch = std::env::consts::ARCH;

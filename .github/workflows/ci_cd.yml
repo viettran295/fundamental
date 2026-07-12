@@ -35,7 +35,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - name: Run tests
-        run: cargo test --verbose -- --nocapture  --test-threads=8
+        run: cargo test --verbose -- --nocapture  --test-threads=16
 
   build-arm64:
     needs: tests
