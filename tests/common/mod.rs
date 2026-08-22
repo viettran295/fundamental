@@ -52,7 +52,7 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
                 .unwrap_or(format!("redis://{host}:{host_port}"))
                 .to_string();
             let timeout_seconds: i64 = 60 * 60 * 24;
-            let db = match DragonFlyCache::init(uri, timeout_seconds).await {
+            let db = match DragonFlyCache::init(&uri, timeout_seconds).await {
                 Ok(db) => db,
                 Err(e) => {
                     warn!("Error connecting cache Db: {:?}", e);

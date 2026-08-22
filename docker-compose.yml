@@ -1,17 +1,7 @@
 services:
-  app:
-    image: viettrann/fundamental
-    user: "${UID}:${GID}"
-    network_mode: "host"
-    volumes:
-      - ./data:/app/data
-    ports:
-      - "3000:3000"
-    depends_on:
-      - db
-  db:
+  dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly
-    network_mode: "host"
+    container_name: dragonfly
     ulimits:
       memlock: -1
     command: >
@@ -20,4 +10,22 @@ services:
       --log_dir="/var/log/dragonfly"
     ports:
       - "6379:6379"
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 2s
+      timeout: 3s
+      retries: 5
+
+  fundamental:
+    # build: .
+    image: viettrann/fundamental
+    container_name: fundamental
+    user: "${UID}:${GID}"
+    environment:
+      - CACHE_DB_URI=redis://dragonfly:6379
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "3000:3000"
+    depends_on:
+      - dragonfly

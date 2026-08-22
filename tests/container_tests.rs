@@ -54,7 +54,7 @@ async fn test_period_reports() {
 async fn test_cache_db() {
     let (_cache_db_container, host, host_port) = init_cache_db().await;
     let timeout_sec: i64 = 5;
-    let mut db = DragonFlyCache::init(format!("redis://{host}:{host_port}"), timeout_sec)
+    let mut db = DragonFlyCache::init(&format!("redis://{host}:{host_port}"), timeout_sec)
         .await
         .unwrap();
 
@@ -82,7 +82,7 @@ async fn test_cache_db() {
 async fn test_avg_ratios_requests_handler() {
     let (_cache_db_container, host, host_port) = init_cache_db().await;
     let timeout_sec: i64 = 60 * 60;
-    let db = DragonFlyCache::init(format!("redis://{host}:{host_port}"), timeout_sec)
+    let db = DragonFlyCache::init(&format!("redis://{host}:{host_port}"), timeout_sec)
         .await
         .unwrap();
     let shared_db = Arc::new(Mutex::new(db));

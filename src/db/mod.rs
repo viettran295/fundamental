@@ -11,7 +11,7 @@ pub enum DataManagerError {
 
 #[async_trait]
 pub trait DataManager<K, V> {
-    async fn init(uri: String, timeout_seconds: i64) -> Result<Self, DataManagerError>
+    async fn init(uri: &str, timeout_seconds: i64) -> Result<Self, DataManagerError>
     where
         Self: Sized;
     async fn set(&mut self, key: K, value: V);

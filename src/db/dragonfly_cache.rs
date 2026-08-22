@@ -13,7 +13,7 @@ pub struct DragonFlyCache {
 
 #[async_trait]
 impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
-    async fn init(uri: String, timeout_seconds: i64) -> Result<Self, DataManagerError> {
+    async fn init(uri: &str, timeout_seconds: i64) -> Result<Self, DataManagerError> {
         let client = match redis::Client::open(uri) {
             Ok(client) => client,
             Err(_) => {
@@ -25,7 +25,7 @@ impl DataManager<String, HashMap<String, f64>> for DragonFlyCache {
             .get_multiplexed_async_connection()
             .await
             .map_err(|e| {
-                error!("Error connecting to Dragonfly Db: {}", e);
+                error!("Error connecting to Dragonfly Db at {}: {}", uri, e);
                 DataManagerError::ConnectionFailed
             })?;
         Ok(Self {
