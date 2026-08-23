@@ -21,5 +21,5 @@ COPY --from=builder --chown=app-user:app-user /app/target/release/fundamental ./
 ARG CACHE_DB_URI
 ENV CACHE_DB_URI=$CACHE_DB_URI
 ENV RUST_LOG=debug
-EXPOSE 3000
+EXPOSE 8001
 CMD ["./fundamental"]

@@ -43,7 +43,7 @@ cargo build --release
 ./target/release/fundamental
 ```
 
-The server will be available at `http://localhost:3000`.
+The server will be available at `http://localhost:8001`.
 
 ## Project Structure
 

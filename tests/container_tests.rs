@@ -18,7 +18,7 @@ use testcontainers::{
 };
 
 const TEST_IMG: &str = "viettrann/fundamental";
-const TEST_PORT: u16 = 3000;
+const TEST_PORT: u16 = 8001;
 
 #[tokio::test]
 #[ignore]

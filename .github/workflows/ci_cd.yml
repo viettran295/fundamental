@@ -115,7 +115,7 @@ jobs:
                         --name $CONTAINER_NAME \
                         --network $NETWORK \
                         -e CACHE_DB_URI=redis://dragonfly:6379 \
-                        -p 3000:3000 \
+                        -p 8001:8001 \
                         $ARM64_IMG
             else
               echo "Unsupported architecture: $VPS_ARCH"

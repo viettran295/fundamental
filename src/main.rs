@@ -47,7 +47,7 @@ async fn main() {
         .route("/{ticker}/{period}", get(requests_handler))
         .with_state(app_state);
 
-    let listener = match tokio::net::TcpListener::bind("0.0.0.0:3000").await {
+    let listener = match tokio::net::TcpListener::bind("0.0.0.0:8001").await {
         Ok(listener) => listener,
         Err(e) => {
             error!("Error connecting TCP: {}", e);
